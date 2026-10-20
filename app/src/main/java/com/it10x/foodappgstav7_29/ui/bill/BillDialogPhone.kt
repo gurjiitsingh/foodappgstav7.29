@@ -71,7 +71,7 @@ fun BillDialogPhone(
 
     var isPrinted by remember { mutableStateOf(false) }
     var isCreditSelected by remember { mutableStateOf(false) }
-
+    var receivedAmount by remember { mutableStateOf("") }
     // =========================================================
     // BILL VIEW MODEL
     // =========================================================
@@ -1404,6 +1404,8 @@ fun BillDialogPhone(
                     deliveryFee =
                         deliveryFee,
 
+                    receivedAmount = receivedAmount,
+                    setReceivedAmount = { receivedAmount = it },
                     billViewModel =
                         billViewModel,
 

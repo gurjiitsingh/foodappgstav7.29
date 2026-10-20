@@ -116,14 +116,6 @@ fun PaymentButtonsSection(
                 text = "📱 UPI",
                 color = Color(0xFFFF9800)
             ) { onPay("UPI", remainingPaise) }
-        }
-
-        // 📱 UPI + MORE
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-
 
             PaymentButton(
                 modifier = Modifier.weight(1f),
@@ -131,5 +123,19 @@ fun PaymentButtonsSection(
                 color = Color(0xFF9C27B0)
             ) { onMoreClick() }
         }
+
+        // 📱 UPI + MORE
+//        Row(
+//            modifier = Modifier.fillMaxWidth(),
+//            horizontalArrangement = Arrangement.spacedBy(6.dp)
+//        ) {
+//
+//
+//            PaymentButton(
+//                modifier = Modifier.weight(1f),
+//                text = "More",
+//                color = Color(0xFF9C27B0)
+//            ) { onMoreClick() }
+//        }
     }
 }

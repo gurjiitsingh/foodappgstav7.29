@@ -30,7 +30,8 @@ import com.it10x.foodappgstav7_29.ui.theme.PosTheme
 import com.it10x.foodappgstav7_29.utils.MoneyUtils
 import java.util.Locale
 import com.it10x.foodappgstav7_29.utils.formatter.MoneyFormatter
-
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 
 @Composable
 fun BillDialog(
@@ -100,6 +101,10 @@ fun BillDialog(
         }
     }
 
+    LaunchedEffect(billViewModel.totalPaise) {
+        receivedAmount = (billViewModel.totalPaise / 100.0).toString()
+    }
+
     val uiState = billViewModel.uiState.collectAsState()
 
     var hasLoadedItems by remember { mutableStateOf(false) }
@@ -146,6 +151,161 @@ fun BillDialog(
         }
     }
 
+    //ALERTE IS AMOUNT NOT EQUAL
+
+    var showExcessAmountAlert by remember {
+        mutableStateOf(false)
+    }
+
+    var pendingCashMode by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    var pendingCashAmount by remember {
+        mutableStateOf<Long?>(null)
+    }
+
+    val receivedAmountValue = receivedAmount.toDoubleOrNull()
+    val grandTotal = billViewModel.totalPaise / 100.0
+
+//    LaunchedEffect(receivedAmount, billViewModel.totalPaise) {
+//        showExcessAmountAlert =
+//            receivedAmountValue != null &&
+//                    receivedAmountValue > grandTotal
+//    }
+
+    var showInsufficientAmountAlert by remember {
+        mutableStateOf(false)
+    }
+
+    if (showExcessAmountAlert) {
+
+        val excessAmount =
+            ((receivedAmount.toDoubleOrNull() ?: 0.0) - grandTotal)
+                .coerceAtLeast(0.0)
+
+        AlertDialog(
+            onDismissRequest = {
+                showExcessAmountAlert = false
+                pendingCashMode = null
+                pendingCashAmount = null
+            },
+            title = {
+                Text("Return Customer Excess Amount")
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Return the following excess cash to the customer:")
+
+                    Text(
+                        text = MoneyFormatter.format(
+                            excessAmount,
+                            currencyCode,
+                            localeTag
+                        ),
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PosTheme.bill.success
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val mode = pendingCashMode
+                        val amount = pendingCashAmount
+
+                        showExcessAmountAlert = false
+                        pendingCashMode = null
+                        pendingCashAmount = null
+
+                        if (mode != null && amount != null) {
+                            billViewModel.payBill(
+                                payments = listOf(
+                                    PaymentInput(
+                                        mode = mode,
+                                        amount = amount
+                                    )
+                                ),
+                                name = "Customer",
+                                phone = uiState.value.customerPhone
+                            )
+                        }
+                    }
+                ) {
+                    Text("Confirm Cash Payment")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showExcessAmountAlert = false
+                        pendingCashMode = null
+                        pendingCashAmount = null
+                    }
+                ) {
+                    Text("Back")
+                }
+            }
+        )
+    }
+    if (showInsufficientAmountAlert) {
+
+        val entered = receivedAmount.toDoubleOrNull() ?: 0.0
+        val balance = (grandTotal - entered).coerceAtLeast(0.0)
+
+        AlertDialog(
+            onDismissRequest = {
+                showInsufficientAmountAlert = false
+            },
+            title = {
+                Text("Amount Pending")
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("The received amount is less than the total payable.")
+
+                    Text(
+                        text = "Remaining amount: ${
+                            MoneyFormatter.format(
+                                balance,
+                                currencyCode,
+                                localeTag
+                            )
+                        }",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PosTheme.bill.warning
+                    )
+
+                    Text("Collect the remaining amount using another payment method.")
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showInsufficientAmountAlert = false
+                        showRemainingOptions = true
+                    }
+                ) {
+                    Text("Continue")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showInsufficientAmountAlert = false
+                    }
+                ) {
+                    Text("Back")
+                }
+            }
+        )
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -173,14 +333,15 @@ fun BillDialog(
                 // ========= LEFT COLUMN (Bill List + Totals) =========
                 Surface(
                     modifier = Modifier
-                        .weight(2.2f)
+                        .weight(1.6f)
                         .fillMaxHeight(),
                     color = PosTheme.bill.billTab,
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(8.dp)
-                    ) {
+                        modifier = Modifier.padding(0.dp)
+                    )
+                    {
 
 
                         Text(
@@ -238,11 +399,12 @@ fun BillDialog(
 
                 Surface(
                     modifier = Modifier
-                        .weight(1f)
+                        .weight(1.4f)
                         .fillMaxHeight(),
                     color = PosTheme.bill.billBg,
                     shape = RoundedCornerShape(12.dp)
-                ) {
+                )
+                {
                     Column(
                         modifier = Modifier
                             .padding(vertical = 8.dp, horizontal = 6.dp)
@@ -638,47 +800,59 @@ fun BillDialog(
 
                         Spacer(Modifier.height(8.dp))
 
-                        OutlinedTextField(
-                            value = receivedAmount,
-                            onValueChange = {},
-                            label = { Text("Amount Received") },
-                            placeholder = { Text("Enter amount") },
-                            readOnly = true,
-                            singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                disabledContainerColor = PosTheme.bill.inputBg,
-                                focusedBorderColor = PosTheme.bill.inputActiveBorder,
-                                unfocusedBorderColor = PosTheme.bill.inputBorder,
-                                focusedTextColor = PosTheme.bill.billText,
-                                unfocusedTextColor = PosTheme.bill.billText
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    activeInput = "RECEIVED_AMOUNT"
-                                }
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Total Payable: ${
+                                    MoneyFormatter.format(
+                                        billViewModel.totalPaise.toDouble()/ 100.0,
+                                        currencyCode,
+                                        localeTag
+                                    )
+                                }",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PosTheme.bill.billText,
+                                modifier = Modifier.weight(1f)
+                            )
 
-// Display the total payable amount
-                        Text(
-                            text = "Total Payable: ${
-                                MoneyFormatter.format(
-                                    6.0,//billViewModel.totalPaise,
-                                    currencyCode,
-                                    localeTag
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable(
+                                        interactionSource = remember {
+                                            MutableInteractionSource()
+                                        },
+                                        indication = null
+                                    ) {
+                                        activeInput = "RECEIVED_AMOUNT"
+                                    }
+                            ) {
+                                OutlinedTextField(
+                                    value = receivedAmount,
+                                    onValueChange = {},
+                                    label = { Text("Amount Received") },
+                                    placeholder = { Text("Enter amount") },
+                                    readOnly = true,
+                                    enabled = false,
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        disabledContainerColor = PosTheme.bill.inputBg,
+                                        disabledBorderColor = PosTheme.bill.inputBorder,
+                                        disabledTextColor = PosTheme.bill.billText,
+                                        disabledLabelColor = PosTheme.bill.billText,
+                                        disabledPlaceholderColor = PosTheme.bill.billText
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
                                 )
-                            }",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = PosTheme.bill.billText,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 6.dp)
-                        )
+                            }
+                        }
 
 
-
-                    // ---------- PAYMENT BUTTONS (Compact, Pastel Colors) ----------
+                        // ---------- PAYMENT BUTTONS (Compact, Pastel Colors) ----------
 //                    Text("Select Payment", style = MaterialTheme.typography.titleSmall)
                     Spacer(Modifier.height(4.dp))
 
@@ -718,16 +892,71 @@ fun BillDialog(
                         PaymentButtonsSection(
                             remainingPaise = remainingPaise,
 
+//                            onPay = { mode, amount ->
+//                                val finalPayments = listOf(
+//                                    PaymentInput(
+//                                        mode = mode,
+//                                        amount = amount
+//                                    )
+//                                )
+//
+//                                billViewModel.payBill(
+//                                    payments = finalPayments,
+//                                    name = "Customer",
+//                                    phone = uiState.value.customerPhone
+//                                )
+//                            },
                             onPay = { mode, amount ->
-                                val finalPayments = listOf(
-                                    PaymentInput(
-                                        mode = mode,
-                                        amount = amount
-                                    )
-                                )
 
+                                val enteredAmount = receivedAmount.toDoubleOrNull()
+                                val total = billViewModel.totalPaise / 100.0
+
+                                if (mode.equals("CASH", ignoreCase = true)) {
+
+                                    when {
+                                        enteredAmount == null -> {
+                                            Toast.makeText(
+                                                context,
+                                                "Please enter the amount received",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+
+                                        enteredAmount > total -> {
+                                            pendingCashMode = mode
+                                            pendingCashAmount = amount
+                                            showExcessAmountAlert = true
+                                        }
+
+                                        enteredAmount < total -> {
+                                            showInsufficientAmountAlert = true
+                                        }
+
+                                        else -> {
+                                            billViewModel.payBill(
+                                                payments = listOf(
+                                                    PaymentInput(
+                                                        mode = mode,
+                                                        amount = amount
+                                                    )
+                                                ),
+                                                name = "Customer",
+                                                phone = uiState.value.customerPhone
+                                            )
+                                        }
+                                    }
+
+                                    return@PaymentButtonsSection
+                                }
+
+                                // Keep existing behavior for other payment methods
                                 billViewModel.payBill(
-                                    payments = finalPayments,
+                                    payments = listOf(
+                                        PaymentInput(
+                                            mode = mode,
+                                            amount = amount
+                                        )
+                                    ),
                                     name = "Customer",
                                     phone = uiState.value.customerPhone
                                 )
@@ -994,6 +1223,8 @@ fun BillDialog(
                             discountPercent = discountPercent,
                             creditAmount = creditAmount,
                             deliveryFee = deliveryFee,
+                            receivedAmount = receivedAmount,
+                            setReceivedAmount = { receivedAmount = it },
                             billViewModel = billViewModel,
                             isPrinted = isPrinted
                         )
@@ -1235,14 +1466,27 @@ fun handleInput(
     discountPercent: MutableState<String>,
     creditAmount: MutableState<String>,
     deliveryFee: MutableState<String>,
+    receivedAmount: String,
+    setReceivedAmount: (String) -> Unit,
     billViewModel: BillViewModel,
     isPrinted: Boolean   // ✅ NEW PARAM
 ) {
 
     // 🛑 GLOBAL LOCK (after print)
+//    if (isPrinted) {
+//        // ✅ Allow ONLY phone editing (optional)
+//        if (activeInput != "PHONE") return
+//    }
     if (isPrinted) {
-        // ✅ Allow ONLY phone editing (optional)
-        if (activeInput != "PHONE") return
+        if (
+            activeInput != "PHONE" &&
+            activeInput != "RECEIVED_AMOUNT" &&
+            activeInput != "DELIVERY"
+        ) return
+
+
+
+
     }
 
     when (activeInput) {
@@ -1328,6 +1572,17 @@ fun handleInput(
 
             billViewModel.setDeliveryFee(
                 deliveryFee.value.toDoubleOrNull() ?: 0.0
+            )
+        }
+        // =========================
+        // RECEIVED AMOUNT
+        // =========================
+        "RECEIVED_AMOUNT" -> {
+            setReceivedAmount(
+                handleNumberInput(
+                    current = receivedAmount,
+                    label = label
+                )
             )
         }
     }
