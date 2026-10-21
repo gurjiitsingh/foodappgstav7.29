@@ -1453,6 +1453,28 @@ fun BillDialog(
 
                 showMoreOptions = false
                 showRemainingOptions = false
+            },
+
+            onConfirmMixedPayments = { payments ->
+
+                val phone = moreOptionsPhone.trim()
+
+                if (phone.length != 10 || !phone.all { it.isDigit() }) {
+                    Toast.makeText(
+                        context,
+                        "Enter valid 10 digit phone number",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    billViewModel.payBill(
+                        payments = payments,
+                        name = "Customer",
+                        phone = phone
+                    )
+
+                    showMoreOptions = false
+                    showRemainingOptions = false
+                }
             }
         )
 
@@ -1478,7 +1500,8 @@ fun handleInput(
     setReceivedAmount: (String) -> Unit,
     billViewModel: BillViewModel,
     isPrinted: Boolean   // ✅ NEW PARAM
-) {
+)
+{
 
     // 🛑 GLOBAL LOCK (after print)
 //    if (isPrinted) {

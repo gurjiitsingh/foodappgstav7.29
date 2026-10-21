@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-
+import com.it10x.foodappgstav7_29.ui.payment.PaymentInput
 @Composable
 fun MorePaymentOptionsDialog(
     onDismiss: () -> Unit,
@@ -44,6 +44,7 @@ fun MorePaymentOptionsDialog(
     showRemainingOptions: Boolean,
     remainingPaise: Long,
     onPayRemaining: (String, Long) -> Unit,
+    onConfirmMixedPayments: (List<PaymentInput>) -> Unit,
 ) {
     var activeKeypadInput by remember {
         mutableStateOf("PHONE")
@@ -112,14 +113,16 @@ fun MorePaymentOptionsDialog(
                         .weight(1f)
                         .padding(vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
+                )
+                {
 
                     // LEFT MENU
                     Column(
                         modifier = Modifier
                             .fillMaxHeight()
                             .weight(0.30f),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+
                     ) {
                         options.forEach { (key, label) ->
 
@@ -321,7 +324,8 @@ fun MorePaymentOptionsDialog(
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
+                                )
+                                {
                                     OutlinedButton(
                                         onClick = onCreditCancel,
                                         modifier = Modifier
@@ -425,7 +429,211 @@ fun MorePaymentOptionsDialog(
                                             }
                                         }
                                     }
+
                                 }
+
+                                // MIXED PAYMENT SECTION
+                                if (showRemainingOptions && remainingPaise > 0L) {
+
+                                    var mixedAmount by remember {
+                                        mutableStateOf("")
+                                    }
+
+                                    val mixedPayments = remember {
+                                        mutableStateListOf<PaymentInput>()
+                                    }
+
+                                    val mixedPaidPaise = mixedPayments.sumOf {
+                                        it.amount
+                                    }
+
+                                    val mixedRemainingPaise =
+                                        (remainingPaise - mixedPaidPaise)
+                                            .coerceAtLeast(0L)
+
+                                    val amountRupees =
+                                        mixedRemainingPaise / 100
+
+                                    val amountPaise =
+                                        mixedRemainingPaise % 100
+
+                                    Divider(
+                                        color = Color(0xFFE0E0E0)
+                                    )
+
+                                    Text(
+                                        text = "Mixed Payment",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF202124)
+                                    )
+
+                                    Text(
+                                        text = "Remaining: ₹$amountRupees.${
+                                            amountPaise.toString().padStart(2, '0')
+                                        }",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF1976D2)
+                                    )
+
+                                    OutlinedTextField(
+                                        value = mixedAmount,
+                                        onValueChange = { value ->
+                                            if (
+                                                value.isEmpty() ||
+                                                (
+                                                        value.all {
+                                                            it.isDigit() || it == '.'
+                                                        } &&
+                                                                value.count { it == '.' } <= 1
+                                                        )
+                                            ) {
+                                                mixedAmount = value
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        label = {
+                                            Text("Payment Amount")
+                                        },
+                                        placeholder = {
+                                            Text("Enter amount")
+                                        },
+                                        singleLine = true,
+                                        keyboardOptions = KeyboardOptions(
+                                            keyboardType = KeyboardType.Decimal
+                                        )
+                                    )
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement =
+                                            Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        listOf(
+                                            "CASH" to "Cash",
+                                            "CARD" to "Card",
+                                            "UPI" to "UPI"
+                                        ).forEach { (mode, label) ->
+
+                                            Button(
+                                                onClick = {
+                                                    val parts =
+                                                        mixedAmount.trim().split(".")
+
+                                                    val rupees =
+                                                        parts.getOrNull(0)
+                                                            ?.toLongOrNull() ?: 0L
+
+                                                    val paise =
+                                                        parts.getOrNull(1)
+                                                            ?.padEnd(2, '0')
+                                                            ?.take(2)
+                                                            ?.toLongOrNull() ?: 0L
+
+                                                    val enteredPaise =
+                                                        rupees * 100 + paise
+
+                                                    if (
+                                                        enteredPaise > 0L &&
+                                                        enteredPaise <=
+                                                        mixedRemainingPaise
+                                                    ) {
+                                                        mixedPayments.add(
+                                                            PaymentInput(
+                                                                mode = mode,
+                                                                amount = enteredPaise
+                                                            )
+                                                        )
+
+                                                        mixedAmount = ""
+                                                    }
+                                                },
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .height(44.dp),
+                                                enabled =
+                                                    mixedRemainingPaise > 0L,
+                                                contentPadding =
+                                                    PaddingValues(
+                                                        horizontal = 4.dp
+                                                    )
+                                            ) {
+                                                Text(
+                                                    text = "Add $label",
+                                                    fontSize = 12.sp
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    if (mixedPayments.isNotEmpty()) {
+                                        Text(
+                                            text = "Added payments",
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color(0xFF202124)
+                                        )
+
+                                        mixedPayments.forEachIndexed {
+                                                index, payment ->
+
+                                            val paymentRupees =
+                                                payment.amount / 100
+
+                                            val paymentPaise =
+                                                payment.amount % 100
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalAlignment =
+                                                    Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = "${payment.mode}: ₹$paymentRupees.${
+                                                        paymentPaise
+                                                            .toString()
+                                                            .padStart(2, '0')
+                                                    }",
+                                                    modifier = Modifier.weight(1f),
+                                                    color = Color(0xFF30343B)
+                                                )
+
+                                                TextButton(
+                                                    onClick = {
+                                                        mixedPayments.removeAt(index)
+                                                    }
+                                                ) {
+                                                    Text("Remove")
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Button(
+                                        onClick = {
+                                            if (
+                                                mixedRemainingPaise == 0L &&
+                                                mixedPayments.isNotEmpty()
+                                            ) {
+                                                onConfirmMixedPayments(
+                                                    mixedPayments.toList()
+                                                )
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(48.dp),
+                                        enabled =
+                                            mixedRemainingPaise == 0L &&
+                                                    mixedPayments.isNotEmpty()
+                                    ) {
+                                        Text("Confirm Mixed Payment")
+                                    }
+                                }
+
+
+
+
                             }
                         }
                     }
