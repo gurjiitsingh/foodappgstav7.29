@@ -8,10 +8,12 @@ import com.it10x.foodappgstav7_29.data.pos.dao.SalesMasterDao
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.*
+import com.it10x.foodappgstav7_29.data.pos.dao.PosOrderPaymentDao
 
 class SalesViewModel(
     private val salesMasterDao: SalesMasterDao,
-    private val orderProductDao: OrderProductDao
+    private val orderProductDao: OrderProductDao,
+    private val paymentDao: PosOrderPaymentDao
 ) : ViewModel() {
 
     companion object {
@@ -64,10 +66,12 @@ class SalesViewModel(
                 .sumOf { it.grandTotal }
 
             // ---------------- PAYMENT BREAKUP ----------------
-            val paymentBreakup = sales
-                .groupBy { it.paymentMode }
-                .mapValues { entry ->
-                    entry.value.sumOf { it.grandTotal }
+            // ---------------- PAYMENT BREAKUP ----------------
+// Read individual successful payments, not pos_order_master.paymentMode.
+            val paymentBreakup = paymentDao
+                .getPaymentBreakup(from, to)
+                .associate { row ->
+                    row.paymentMode to row.total
                 }
 
             // ---------------- CATEGORY SALES ----------------

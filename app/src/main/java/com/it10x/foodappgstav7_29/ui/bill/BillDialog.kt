@@ -1501,7 +1501,7 @@ fun handleInput(
     billViewModel: BillViewModel,
     isPrinted: Boolean   // ✅ NEW PARAM
 )
-{
+ {
 
     // 🛑 GLOBAL LOCK (after print)
 //    if (isPrinted) {

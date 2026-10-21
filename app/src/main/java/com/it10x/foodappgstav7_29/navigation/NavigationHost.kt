@@ -615,23 +615,22 @@ fun NavigationHost(
 // ---------------- SALES ----------------
 
         composable("sales") {
-
             val context = LocalContext.current
             val db = AppDatabaseProvider.get(context)
 
             val salesViewModel: SalesViewModel = viewModel(
                 factory = SalesViewModelFactory(
                     salesMasterDao = db.salesMasterDao(),
-                    orderProductDao = db.orderProductDao()
+                    orderProductDao = db.orderProductDao(),
+                    paymentDao = db.posOrderPaymentDao()
                 )
             )
 
-
-
-
             SalesScreen(
                 viewModel = salesViewModel,
-                onBack = { navController.popBackStack() },
+                onBack = {
+                    navController.popBackStack()
+                },
                 onHistoryReport = {
                     navController.navigate("total_sales")
                 },

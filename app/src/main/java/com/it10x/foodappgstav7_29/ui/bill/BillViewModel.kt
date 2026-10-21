@@ -846,27 +846,6 @@ class BillViewModel(
                     orderMasterDao.insert(orderMaster)
                     orderProductDao.insertAll(orderItems)
 
-//                     if (payments.isNotEmpty() && totalPaidPaise > 0){
-//                         val paymentEntities = payments.map {
-//                             PosOrderPaymentEntity(
-//                                 id = UUID.randomUUID().toString(),
-//                                 orderId = orderId,
-//                                 ownerId = outlet.ownerId,
-//                                 outletId = outlet.outletId,
-//                                 amount = MoneyUtils.fromPaise(it.amount),
-//                                 mode = it.mode,
-//                                 provider = null,
-//                                 method = null,
-//                                 status = "SUCCESS",
-//                                 deviceId = "POS",
-//                                 createdAt = now,
-//                                 businessDate = now,
-//                                 syncStatus = "PENDING"
-//                             )
-//                         }
-//
-//                         paymentRepository.insertPayments(paymentEntities)
-//                     }
 
                     // UPDATE KOT STATUS PAID
 //                     kotRepository.markHistoryPaid(
@@ -1301,7 +1280,7 @@ class BillViewModel(
     ) {
 
         val creditPaiseInput = _creditPaise.value
-        val paidModes = setOf("CASH", "CARD", "UPI", "WALLET", "CANCEL")
+        val paidModes = setOf("CASH", "CARD", "UPI", "WALLET")
 
         val hasPaid = payments.any { it.mode in paidModes }
         val hasUnpaid = payments.any { it.mode in unpaidModes }
@@ -1912,6 +1891,31 @@ class BillViewModel(
                     )
                 }
 
+                // ==========================================
+// VERIFY COMMITTED BILL + PAYMENTS
+// ==========================================
+
+//                val savedOrder = orderMasterDao.getByIdSync(orderId)
+//                val savedPayments = paymentRepository.getPaymentsByOrderId(orderId)
+//                val savedPaidTotal = paymentRepository.getTotalPaid(orderId)
+//
+//                Log.d(
+//                    "POS_PAYMENT_DEBUG",
+//                    """
+//    ========== COMMITTED BILL VERIFICATION ==========
+//    orderId=$orderId
+//    masterFound=${savedOrder != null}
+//    paymentCount=${savedPayments.size}
+//    paymentTotal=$savedPaidTotal
+//    paymentMode=${savedOrder?.paymentMode}
+//    paymentStatus=${savedOrder?.paymentStatus}
+//    grandTotal=${savedOrder?.grandTotal}
+//    paidAmount=${savedOrder?.paidAmount}
+//    dueAmount=${savedOrder?.dueAmount}
+//    ================================================
+//    """.trimIndent()
+//                )
+
                 sendEvent("Payment successful")
                 pendingOrderId = null
                 resetBillUi()
@@ -1926,6 +1930,8 @@ class BillViewModel(
                // if (!isFinished) {
                     fiscalService.cancel(fiscalContext)
                // }
+
+
 
                 Log.e("PAY_ERROR", "Payment failed", e)
                 sendEvent("Payment failed")

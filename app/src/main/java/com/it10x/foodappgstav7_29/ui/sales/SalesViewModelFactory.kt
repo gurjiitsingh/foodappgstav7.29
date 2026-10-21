@@ -4,10 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.it10x.foodappgstav7_29.data.pos.dao.SalesMasterDao
 import com.it10x.foodappgstav7_29.data.pos.dao.OrderProductDao
+import com.it10x.foodappgstav7_29.data.pos.dao.PosOrderPaymentDao
 
 class SalesViewModelFactory(
     private val salesMasterDao: SalesMasterDao,
-    private val orderProductDao: OrderProductDao      // ✅ added
+    private val orderProductDao: OrderProductDao,
+    private val paymentDao: PosOrderPaymentDao
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -15,9 +17,11 @@ class SalesViewModelFactory(
         if (modelClass.isAssignableFrom(SalesViewModel::class.java)) {
             return SalesViewModel(
                 salesMasterDao = salesMasterDao,
-                orderProductDao = orderProductDao     // ✅ pass it here
+                orderProductDao = orderProductDao,
+                paymentDao = paymentDao
             ) as T
         }
+
         throw IllegalArgumentException("Unknown ViewModel class")
     }
 }

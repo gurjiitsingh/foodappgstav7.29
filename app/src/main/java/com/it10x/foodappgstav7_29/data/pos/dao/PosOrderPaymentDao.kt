@@ -28,6 +28,27 @@ interface PosOrderPaymentDao {
     """)
     fun getPaymentsForOrder(orderId: String): Flow<List<PosOrderPaymentEntity>>
 
+
+
+    // ======================
+// PAYMENT BREAKUP FROM INDIVIDUAL PAYMENT RECORDS
+// ======================
+    @Query("""
+    SELECT
+        mode AS paymentMode,
+        IFNULL(SUM(amount), 0) AS total
+    FROM pos_order_payments
+    WHERE status = 'SUCCESS'
+      AND isVoided = 0
+      AND createdAt BETWEEN :from AND :to
+    GROUP BY mode
+    ORDER BY mode
+""")
+    suspend fun getPaymentBreakup(
+        from: Long,
+        to: Long
+    ): List<PaymentBreakup>
+
     @Query("""
         SELECT IFNULL(SUM(amount),0)
         FROM pos_order_payments
