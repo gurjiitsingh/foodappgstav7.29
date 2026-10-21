@@ -1281,6 +1281,7 @@ fun FastFoodPosScreen(
             localeTag = outletInfo.localeTag,
             selectedTableName = selectedTableName ?: "",
             posSessionViewModel = posSessionViewModel,
+
         )
     else{
         BillDialogPhone(

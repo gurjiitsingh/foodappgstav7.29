@@ -31,6 +31,7 @@ import com.it10x.foodappgstav7_29.utils.MoneyUtils
 import java.util.Locale
 import com.it10x.foodappgstav7_29.utils.formatter.MoneyFormatter
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.input.KeyboardType
 
 @Composable
@@ -76,12 +77,7 @@ fun BillDialog(
     var itemDeleteReason by remember { mutableStateOf("") }
     var pendingDeleteItemId by remember { mutableStateOf<String?>(null) }
 
-//    Log.d(
-//        "VIRTUAL_TABLE_STATUS",
-//        "BillDaalog: tableId=$tableId, " +
-//                "type=$orderType, "
-//
-//    )
+
     val billViewModel: BillViewModel = viewModel(
 
         key = "BillVM_${sessionId}_${orderType}",
@@ -109,6 +105,10 @@ fun BillDialog(
 
     var hasLoadedItems by remember { mutableStateOf(false) }
     var showMoreOptions by remember { mutableStateOf(false) }
+    var showComplimentaryReasons by remember {
+        mutableStateOf(false)
+    }
+
     LaunchedEffect(uiState.value.items) {
 
         if (uiState.value.items.isNotEmpty()) {
@@ -173,6 +173,10 @@ fun BillDialog(
 //            receivedAmountValue != null &&
 //                    receivedAmountValue > grandTotal
 //    }
+
+    var moreOptionsPhone by remember(sessionId) {
+        mutableStateOf(uiState.value.customerPhone)
+    }
 
     var showInsufficientAmountAlert by remember {
         mutableStateOf(false)
@@ -413,94 +417,89 @@ fun BillDialog(
                     )
                     {
 
-                    // ---------------- DISCOUNT SECTION ----------------
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 2.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    )
-                    {
-//                        Text(
-//                            "Actions",
-//                            style = MaterialTheme.typography.titleSmall,
-//                            color = Color.White
-//                        )
+// =====================================================
+// ACTIONS — THREE ITEMS IN ONE ROW
+// =====================================================
 
-                        if (isPrinted) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
 
+                            // -------- UNLOCK / NO PRINT --------
                             Button(
                                 onClick = {
-                                    isPrinted = false
+                                    isPrinted = !isPrinted
                                 },
                                 modifier = Modifier
                                     .height(28.dp)
-                                    .width(90.dp),
+                                    .width(82.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = PosTheme.bill.warning,
-                                            contentColor = PosTheme.accent.primaryActionText,
-//                                    containerColor = PosTheme.accent.primaryActionBg
-//                                            contentColor = PosTheme.accent.primaryActionText
-                                ),
-                                contentPadding = PaddingValues(vertical = 0.dp)
-                            ) {
-                                Text("Unlock", fontSize = 12.sp)
-                            }
-
-                        } else {
-
-                            Button(
-                                onClick = {
-                                    isPrinted = true
-                                },
-                                modifier = Modifier
-                                    .height(28.dp)
-                                    .width(90.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = PosTheme.bill.success,
+                                    containerColor = if (isPrinted)
+                                        PosTheme.bill.warning
+                                    else
+                                        PosTheme.bill.success,
                                     contentColor = Color.White
                                 ),
-                                contentPadding = PaddingValues(vertical = 0.dp)
+                                contentPadding = PaddingValues(
+                                    horizontal = 4.dp,
+                                    vertical = 0.dp
+                                )
                             ) {
-                                Text("No Print", fontSize = 12.sp)
+                                Text(
+                                    text = if (isPrinted) "Unlock" else "No Print",
+                                    fontSize = 11.sp,
+                                    maxLines = 1
+                                )
+                            }
+
+                            // -------- MESSAGE --------
+                            if (isPrinted) {
+                                Text(
+                                    text = "Complete payment or press Unlock.",
+                                    color = PosTheme.bill.warning,
+                                    fontSize = 10.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            } else {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+
+                            // -------- CLOSE --------
+                            Button(
+                                onClick = {
+                                    if (!isPrinted) {
+                                        onDismiss()
+                                    }
+                                },
+                                enabled = !isPrinted,
+                                modifier = Modifier
+                                    .height(28.dp)
+                                    .width(70.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = PosTheme.bill.danger,
+                                    contentColor = Color.White,
+                                    disabledContainerColor =
+                                        PosTheme.bill.danger.copy(alpha = 0.35f),
+                                    disabledContentColor = Color.White.copy(alpha = 0.6f)
+                                ),
+                                contentPadding = PaddingValues(
+                                    horizontal = 4.dp,
+                                    vertical = 0.dp
+                                )
+                            ) {
+                                Text(
+                                    text = "Close",
+                                    fontSize = 11.sp,
+                                    maxLines = 1
+                                )
                             }
                         }
 
-                        // ✅ Compact Close button (top-right)
-                        Button(
-                            onClick = {
-                                if (!isPrinted) {
-                                    onDismiss()
-                                }
-                            },
-                            enabled = !isPrinted,
-                            modifier = Modifier
-                                .height(28.dp)
-                                .width(70.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = PosTheme.bill.danger,
-                                contentColor = Color.White,
-                                disabledContainerColor = PosTheme.bill.danger.copy(alpha = 0.35f),
-                                disabledContentColor = Color.White.copy(alpha = 0.6f)
-                            ),
-                            contentPadding = PaddingValues(vertical = 0.dp)
-                        ) {
-                            Text("Close", fontSize = 12.sp)
-                        }
-                    }
-                        if (isPrinted) {
-                            Text(//  Close disabled after printing.
-
-                                text = "Complete payment or press Unlock.",
-                                color = PosTheme.bill.warning,
-                                fontSize = 11.sp,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 4.dp, bottom = 8.dp)
-                            )
-                        }
 
                     Box(
                         modifier = Modifier
@@ -573,225 +572,256 @@ fun BillDialog(
                     }
 
 
-// DISCOUNT TOGGLE
+// =====================================================
+// DISCOUNT — SINGLE ROW
+// =====================================================
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 2.dp),   // 🔹 reduced top & bottom spacing
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-
-                        Text(
-                            text = "Enable Discount",
-                            fontSize = 14.sp,          // 🔹 smaller title
-                            color = PosTheme.bill.billText.copy(alpha = 0.7f),
-                            fontWeight = FontWeight.Medium
-                        )
-
-                        Switch(
-                            checked = showDiscount,
-                            onCheckedChange = { showDiscount = it },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = PosTheme.bill.warning,
-                                checkedTrackColor = PosTheme.bill.warning.copy(alpha = 0.35f),
-
-                                uncheckedThumbColor = PosTheme.bill.billText.copy(alpha = 0.6f),
-                                uncheckedTrackColor = PosTheme.bill.inputBorder.copy(alpha = 0.35f),
-                                uncheckedBorderColor = PosTheme.bill.inputBorder
-                            )
-                        )
-                    }
-
-
-
-
-
-                    Log.d("ISPIRINTED", "is print done = ${isPrinted}")
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-//                        Text("Discount", style = MaterialTheme.typography.titleSmall)
-                        // -------- FLAT --------
-                        if (showDiscount) {
-
-
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable {
-                                        activeInput = "FLAT"
-                                        discountPercent.value = ""
-                                        billViewModel.setPercentDiscount(0.0)
-                                    }
-                            ) {
-                                OutlinedTextField(
-                                    value = discountFlat.value,
-                                    onValueChange = {},
-                                    label = { Text("Flat") },
-                                    readOnly = true,
-                                    enabled = isPrinted,
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        disabledContainerColor =
-                                            if (activeInput == "FLAT")
-                                                PosTheme.bill.inputActiveBg
-                                            else
-                                                PosTheme.bill.inputBg,
-
-                                        disabledBorderColor =
-                                            if (activeInput == "FLAT")
-                                                PosTheme.bill.inputActiveBorder
-                                            else
-                                                PosTheme.bill.inputBorder,
-
-                                        disabledTextColor = PosTheme.bill.billText,
-                                        disabledLabelColor = PosTheme.bill.billText.copy(alpha = 0.7f)
-                                    ),
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-
-                            // -------- PERCENT --------
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable {
-                                        activeInput = "PERCENT"
-                                        discountFlat.value = ""
-                                        billViewModel.setFlatDiscount(0.0)
-                                    }
-                            ) {
-                                OutlinedTextField(
-                                    value = discountPercent.value,
-                                    onValueChange = {},
-                                    label = { Text("%") },
-                                    readOnly = true,
-                                   enabled = isPrinted,
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        disabledContainerColor =
-                                            if (activeInput == "PERCENT")
-                                                PosTheme.bill.inputActiveBg
-                                            else
-                                                PosTheme.bill.inputBg,
-
-                                        disabledBorderColor =
-                                            if (activeInput == "PERCENT")
-                                                PosTheme.bill.inputActiveBorder
-                                            else
-                                                PosTheme.bill.inputBorder,
-
-                                        disabledTextColor = PosTheme.bill.billText,
-                                        disabledLabelColor = PosTheme.bill.billText.copy(alpha = 0.7f)
-                                    ),
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-
-                            TextButton(
-                                onClick = {
-                                    if (!isPrinted) {   // ✅ prevent action after print
-                                        discountFlat.value = ""
-                                        discountPercent.value = ""
-                                        billViewModel.setFlatDiscount(0.0)
-                                        billViewModel.setPercentDiscount(0.0)
-                                        activeInput = null
-                                    }
-                                },
-                                enabled = !isPrinted   // ✅ disable button UI also
-                            ) {
-                                Text("❌")
-                            }
-                        }
-
-                    }
-
-// ---------------- DELIVERY TOGGLE ----------------
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-
-                        Text(
-                            text = "Enable Delivery Charges",
-                            fontSize = 14.sp,
-                            color = PosTheme.bill.billText.copy(alpha = 0.7f),
-                            fontWeight = FontWeight.Medium
-                        )
-
-                        Switch(
-                            checked = showDelivery,
-                            onCheckedChange = {
-                                showDelivery = it
-                            },
-                        )
-                    }
-
-
-// ---------------- DELIVERY INPUT ----------------
-
-                    if (showDelivery) {
+                        Log.d("ISPIRINTED", "is print done = ${isPrinted}")
 
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 4.dp)
+                                .padding(vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
 
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable {
-                                        activeInput = "DELIVERY"
-                                    }
-                            ) {
-                                OutlinedTextField(
-                                    value = deliveryFee.value,
-                                    onValueChange = {},
-                                    label = { Text("Delivery") },
-                                    readOnly = true,
-                                    enabled = isPrinted,
-                                    singleLine = true,
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        disabledContainerColor =
-                                            if (activeInput == "DELIVERY")
-                                                PosTheme.bill.inputActiveBg
-                                            else
-                                                PosTheme.bill.inputBg,
+                            // -------- ENABLE DISCOUNT --------
+                            Text(
+                                text = "Discount",
+                                fontSize = 12.sp,
+                                color = PosTheme.bill.billText.copy(alpha = 0.7f),
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1
+                            )
 
-                                        disabledBorderColor =
-                                            if (activeInput == "DELIVERY")
-                                                PosTheme.bill.inputActiveBorder
-                                            else
-                                                PosTheme.bill.inputBorder,
-
-                                        disabledTextColor = PosTheme.bill.billText,
-                                        disabledLabelColor = PosTheme.bill.billText.copy(alpha = 0.7f)
-                                    ),
-                                    modifier = Modifier.fillMaxWidth()
+                            Switch(
+                                checked = showDiscount,
+                                onCheckedChange = { showDiscount = it },
+                                modifier = Modifier.scale(0.75f),
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = PosTheme.bill.warning,
+                                    checkedTrackColor = PosTheme.bill.warning.copy(alpha = 0.35f),
+                                    uncheckedThumbColor = PosTheme.bill.billText.copy(alpha = 0.6f),
+                                    uncheckedTrackColor = PosTheme.bill.inputBorder.copy(alpha = 0.35f),
+                                    uncheckedBorderColor = PosTheme.bill.inputBorder
                                 )
-                            }
+                            )
 
-                            TextButton(
-                                onClick = {
-                                    if (!isPrinted) {
-                                        deliveryFee.value = ""
-                                        activeInput = null
-                                        billViewModel.setDeliveryFee(0.0)
-                                    }
-                                },
-                                enabled = !isPrinted   // ✅ IMPORTANT
-                            ) {
-                                Text("❌")
+                            if (showDiscount) {
+
+                                // -------- CLEAR DISCOUNT --------
+                                TextButton(
+                                    onClick = {
+                                        if (!isPrinted) {
+                                            discountFlat.value = ""
+                                            discountPercent.value = ""
+
+                                            billViewModel.setFlatDiscount(0.0)
+                                            billViewModel.setPercentDiscount(0.0)
+
+                                            activeInput = null
+                                        }
+                                    },
+                                    enabled = !isPrinted,
+                                    contentPadding = PaddingValues(horizontal = 2.dp),
+                                    modifier = Modifier.widthIn(min = 28.dp)
+                                ) {
+                                    Text(
+                                        text = "❌",
+                                        fontSize = 12.sp
+                                    )
+                                }
+                                // -------- FLAT DISCOUNT --------
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable {
+                                            activeInput = "FLAT"
+                                            discountPercent.value = ""
+                                            billViewModel.setPercentDiscount(0.0)
+                                        }
+                                ) {
+                                    OutlinedTextField(
+                                        value = discountFlat.value,
+                                        onValueChange = {},
+                                        label = { Text("Flat", fontSize = 11.sp) },
+                                        readOnly = true,
+                                        enabled = isPrinted,
+                                        singleLine = true,
+                                        textStyle = LocalTextStyle.current.copy(
+                                            fontSize = 12.sp
+                                        ),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            disabledContainerColor =
+                                                if (activeInput == "FLAT")
+                                                    PosTheme.bill.inputActiveBg
+                                                else
+                                                    PosTheme.bill.inputBg,
+
+                                            disabledBorderColor =
+                                                if (activeInput == "FLAT")
+                                                    PosTheme.bill.inputActiveBorder
+                                                else
+                                                    PosTheme.bill.inputBorder,
+
+                                            disabledTextColor = PosTheme.bill.billText,
+                                            disabledLabelColor =
+                                                PosTheme.bill.billText.copy(alpha = 0.7f)
+                                        ),
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+
+                                // -------- PERCENT DISCOUNT --------
+
+
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable {
+                                            activeInput = "PERCENT"
+                                            discountFlat.value = ""
+                                            billViewModel.setFlatDiscount(0.0)
+                                        }
+                                ) {
+                                    OutlinedTextField(
+                                        value = discountPercent.value,
+                                        onValueChange = {},
+                                        label = { Text("%", fontSize = 11.sp) },
+                                        readOnly = true,
+                                        enabled = isPrinted,
+                                        singleLine = true,
+                                        textStyle = LocalTextStyle.current.copy(
+                                            fontSize = 12.sp
+                                        ),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            disabledContainerColor =
+                                                if (activeInput == "PERCENT")
+                                                    PosTheme.bill.inputActiveBg
+                                                else
+                                                    PosTheme.bill.inputBg,
+
+                                            disabledBorderColor =
+                                                if (activeInput == "PERCENT")
+                                                    PosTheme.bill.inputActiveBorder
+                                                else
+                                                    PosTheme.bill.inputBorder,
+
+                                            disabledTextColor = PosTheme.bill.billText,
+                                            disabledLabelColor =
+                                                PosTheme.bill.billText.copy(alpha = 0.7f)
+                                        ),
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+
+
                             }
                         }
-                    }
+
+// =====================================================
+// DELIVERY CHARGES — SINGLE ROW
+// =====================================================
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+
+                            // -------- DELIVERY TOGGLE --------
+                            Text(
+                                text = "Delivery Fee",
+                                fontSize = 12.sp,
+                                color = PosTheme.bill.billText.copy(alpha = 0.7f),
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1
+                            )
+
+                            Switch(
+                                checked = showDelivery,
+                                onCheckedChange = { showDelivery = it },
+                                modifier = Modifier.scale(0.75f),
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = PosTheme.bill.warning,
+                                    checkedTrackColor = PosTheme.bill.warning.copy(alpha = 0.35f),
+                                    uncheckedThumbColor = PosTheme.bill.billText.copy(alpha = 0.6f),
+                                    uncheckedTrackColor = PosTheme.bill.inputBorder.copy(alpha = 0.35f),
+                                    uncheckedBorderColor = PosTheme.bill.inputBorder
+                                )
+                            )
+
+                            // -------- DELIVERY INPUT --------
+                            if (showDelivery) {
+
+                                // -------- CLEAR DELIVERY FEE --------
+                                TextButton(
+                                    onClick = {
+                                        if (!isPrinted) {
+                                            deliveryFee.value = ""
+                                            activeInput = null
+                                            billViewModel.setDeliveryFee(0.0)
+                                        }
+                                    },
+                                    enabled = !isPrinted,
+                                    contentPadding = PaddingValues(horizontal = 2.dp),
+                                    modifier = Modifier.widthIn(min = 28.dp)
+                                ) {
+                                    Text(
+                                        text = "❌",
+                                        fontSize = 12.sp
+                                    )
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable {
+                                            activeInput = "DELIVERY"
+                                        }
+                                ) {
+                                    OutlinedTextField(
+                                        value = deliveryFee.value,
+                                        onValueChange = {},
+                                        label = {
+                                            Text(
+                                                text = "Delivery Fee",
+                                                fontSize = 11.sp
+                                            )
+                                        },
+                                        readOnly = true,
+                                        enabled = isPrinted,
+                                        singleLine = true,
+                                        textStyle = LocalTextStyle.current.copy(
+                                            fontSize = 12.sp
+                                        ),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            disabledContainerColor =
+                                                if (activeInput == "DELIVERY")
+                                                    PosTheme.bill.inputActiveBg
+                                                else
+                                                    PosTheme.bill.inputBg,
+
+                                            disabledBorderColor =
+                                                if (activeInput == "DELIVERY")
+                                                    PosTheme.bill.inputActiveBorder
+                                                else
+                                                    PosTheme.bill.inputBorder,
+
+                                            disabledTextColor = PosTheme.bill.billText,
+                                            disabledLabelColor =
+                                                PosTheme.bill.billText.copy(alpha = 0.7f)
+                                        ),
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+
+
+                            }
+                        }
 
 
 // ==========================================
@@ -858,8 +888,7 @@ fun BillDialog(
 
 
 
-                    val showPrintButton = !isPrinted;
-
+                             val showPrintButton = !isPrinted;
                               if (showPrintButton) {
 
                             Row(
@@ -988,7 +1017,8 @@ fun BillDialog(
 
                                 activeInput = "CREDIT"
                                 isCreditSelected = true
-                                showRemainingOptions = false
+
+                                // Do not set showMoreOptions = false here
                             },
 
                             onPayLaterClick = {
@@ -1249,209 +1279,235 @@ fun BillDialog(
 
     if (showMoreOptions) {
 
-        Dialog(
-            onDismissRequest = {
+        MorePaymentOptionsDialog(
+            onDismiss = {
                 showMoreOptions = false
-            }
-        ) {
+            },
 
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth(0.88f),
-                shape = RoundedCornerShape(28.dp),
-                tonalElevation = 12.dp,
-                color = PosTheme.bill.billText
-            ) {
+            onCreditClick = {
+                billViewModel.clearCredit()
 
-                Column(
-                    modifier = Modifier
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
+                val paise = remainingPaise
+                val rupees = paise / 100
+                val paisaPart = paise % 100
 
-
-                    Text(
-                        text = "🎁",
-                        fontSize = 42.sp
-                    )
-
-
-                    Text(
-                        text = "Complimentary Order",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.DarkGray
-                    )
-
-
-                    Text(
-                        text = "Select reason for free order",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
-                    )
-
-
-                    Spacer(
-                        modifier = Modifier.height(8.dp)
-                    )
-
-
-                    // DRIVER
-                    Button(
-                        onClick = {
-
-                            billViewModel.complimentaryOrder(
-                                payments = listOf(
-                                    PaymentInput(
-                                        mode = "FREE",
-                                        amount = 0
-                                    )
-                                ),
-                                name = "Driver",
-                                phone = uiState.value.customerPhone,
-                                reason = "DRIVER"
-                            )
-
-                            showMoreOptions = false
-                            onDismiss()
-                        },
-
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-
-                        shape = RoundedCornerShape(14.dp),
-
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF1976D2)
-                        )
-
-                    ) {
-                        Text(
-                            "🚚  Driver",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-
-
-
-                    // FAMILY
-                    Button(
-                        onClick = {
-
-                            billViewModel.complimentaryOrder(
-                                payments = listOf(
-                                    PaymentInput(
-                                        mode = "FREE",
-                                        amount = 0
-                                    )
-                                ),
-                                name = "Family",
-                                phone = uiState.value.customerPhone,
-                                reason = "FAMILY"
-                            )
-
-                            showMoreOptions = false
-                            onDismiss()
-                        },
-
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-
-                        shape = RoundedCornerShape(14.dp),
-
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF9C27B0)
-                        )
-
-                    ) {
-
-                        Text(
-                            "👨‍👩‍👧  Family",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-
-                    }
-
-
-
-                    // FRIEND
-                    Button(
-                        onClick = {
-
-                            billViewModel.complimentaryOrder(
-                                payments = listOf(
-                                    PaymentInput(
-                                        mode = "FREE",
-                                        amount = 0
-                                    )
-                                ),
-                                name = "Friend",
-                                phone = uiState.value.customerPhone,
-                                reason = "FRIEND"
-                            )
-
-                            showMoreOptions = false
-                            onDismiss()
-                        },
-
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-
-                        shape = RoundedCornerShape(14.dp),
-
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF4CAF50)
-                        )
-
-                    ) {
-
-                        Text(
-                            "🤝  Friend",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-
-                    }
-
-
-
-                    Spacer(
-                        modifier = Modifier.height(4.dp)
-                    )
-
-
-                    // CANCEL
-                    OutlinedButton(
-                        onClick = {
-                            showMoreOptions = false
-                        },
-
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-
-                        shape = RoundedCornerShape(14.dp)
-
-                    ) {
-
-                        Text(
-                            "Cancel",
-                            color = Color.Gray,
-                            fontSize = 15.sp
-                        )
-
-                    }
-
+                creditAmount.value = if (paisaPart == 0L) {
+                    rupees.toString()
+                } else {
+                    "$rupees.${paisaPart.toString().padStart(2, '0')}"
                 }
+
+                activeInput = "CREDIT"
+                isCreditSelected = true
+                showRemainingOptions = false
+            },
+
+            onPayLaterClick = {
+                val phone = moreOptionsPhone.trim()
+
+                if (phone.length != 10 || !phone.all { it.isDigit() }) {
+                    Toast.makeText(
+                        context,
+                        "Enter valid 10 digit phone number",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    billViewModel.setCustomerPhone(phone)
+
+                    billViewModel.payBill(
+                        payments = listOf(
+                            PaymentInput("DELIVERY_PENDING", remainingPaise)
+                        ),
+                        name = "Customer",
+                        phone = phone
+                    )
+
+                    showMoreOptions = false
+                }
+            },
+
+            onComplimentaryClick = {
+                showMoreOptions = false
+                showComplimentaryReasons = true
+            },
+
+            showCreditInput = isCreditSelected,
+            creditAmount = creditAmount.value,
+
+            onCreditCancel = {
+                creditAmount.value = ""
+                activeInput = null
+                isCreditSelected = false
+            },
+
+            onCreditConfirm = {
+                val phone = moreOptionsPhone.trim()
+
+                if (phone.length != 10 || !phone.all { it.isDigit() }) {
+                    Toast.makeText(
+                        context,
+                        "Enter valid 10 digit phone number",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    return@MorePaymentOptionsDialog
+                }
+
+                val input = creditAmount.value.trim()
+                val parts = input.split(".")
+
+                val rupees = parts.getOrNull(0)?.toLongOrNull() ?: 0L
+                val paise = parts.getOrNull(1)
+                    ?.padEnd(2, '0')
+                    ?.take(2)
+                    ?.toLongOrNull() ?: 0L
+
+                val enteredPaise = rupees * 100 + paise
+
+                if (enteredPaise <= 0L || enteredPaise > remainingPaise) {
+                    Toast.makeText(
+                        context,
+                        "Enter a valid credit amount",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    return@MorePaymentOptionsDialog
+                }
+
+                billViewModel.setCustomerPhone(phone)
+                billViewModel.setCreditAmountRaw(input)
+
+                val totalPaise = billViewModel.totalPaise
+
+                if (enteredPaise == totalPaise) {
+                    // Full bill on credit.
+                    billViewModel.payBill(
+                        payments = emptyList(),
+                        name = "Customer",
+                        phone = phone
+                    )
+
+                    showMoreOptions = false
+                    showRemainingOptions = false
+                } else {
+                    // Partial credit: display the remaining payment options
+                    // inside MorePaymentOptionsDialog.
+                    showRemainingOptions = true
+                }
+
+                creditAmount.value = ""
+                activeInput = null
+                isCreditSelected = false
+            },
+
+            onComplimentaryReasonClick = { reason ->
+                showMoreOptions = false
+
+                // Keep your existing complimentary-reason saving logic here.
+            },
+
+            phoneNumber = moreOptionsPhone,
+
+            onPhoneNumberChange = { value ->
+                moreOptionsPhone = value
+            },
+
+            onPhoneNumberConfirm = {
+                val phone = moreOptionsPhone.trim()
+
+                if (phone.length != 10 || !phone.all { it.isDigit() }) {
+                    Toast.makeText(
+                        context,
+                        "Enter valid 10 digit phone number",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    billViewModel.setCustomerPhone(phone)
+
+                    Toast.makeText(
+                        context,
+                        "Phone number saved",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            },
+
+            onCreditAmountChange = { value ->
+                creditAmount.value = value
+            },
+
+            // NEW: show the remaining-payment options inside the dialog.
+            showRemainingOptions = showRemainingOptions,
+            remainingPaise = remainingPaise,
+
+            // NEW: handle Cash, Card or UPI for the remaining amount.
+            onPayRemaining = { paymentType, amountPaise ->
+                billViewModel.payBill(
+                    payments = listOf(
+                        PaymentInput(
+                            mode = paymentType,
+                            amount = amountPaise
+                        )
+                    ),
+                    name = "Customer",
+                    phone = moreOptionsPhone.trim()
+                )
+
+                showMoreOptions = false
+                showRemainingOptions = false
             }
-        }
+        )
+
     }
+
+//    if (showComplimentaryReasons) {
+//        ComplimentaryReasonDialog(
+//            onDismiss = {
+//                showComplimentaryReasons = false
+//            },
+//            onDriverClick = {
+//                showComplimentaryReasons = false
+//
+//                billViewModel.complimentaryOrder(
+//                    payments = listOf(
+//                        PaymentInput(mode = "FREE", amount = 0)
+//                    ),
+//                    name = "Driver",
+//                    phone = uiState.value.customerPhone,
+//                    reason = "DRIVER"
+//                )
+//
+//                onDismiss()
+//            },
+//            onFamilyClick = {
+//                showComplimentaryReasons = false
+//
+//                billViewModel.complimentaryOrder(
+//                    payments = listOf(
+//                        PaymentInput(mode = "FREE", amount = 0)
+//                    ),
+//                    name = "Family",
+//                    phone = uiState.value.customerPhone,
+//                    reason = "FAMILY"
+//                )
+//
+//                onDismiss()
+//            },
+//            onFriendClick = {
+//                showComplimentaryReasons = false
+//
+//                billViewModel.complimentaryOrder(
+//                    payments = listOf(
+//                        PaymentInput(mode = "FREE", amount = 0)
+//                    ),
+//                    name = "Friend",
+//                    phone = uiState.value.customerPhone,
+//                    reason = "FRIEND"
+//                )
+//
+//                onDismiss()
+//            }
+//        )
+//    }
+
 
 
 }//end of main funciton

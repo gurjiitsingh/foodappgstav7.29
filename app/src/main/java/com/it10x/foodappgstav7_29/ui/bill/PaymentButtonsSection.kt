@@ -38,40 +38,7 @@ fun PaymentButtonsSection(
 
         Spacer(Modifier.height(6.dp))
 
-        Text(
-            "Select Options",
-            style = MaterialTheme.typography.titleSmall
-        )
 
-        // 🔘 CREDIT + PAY LATER
-//        Row(
-//            modifier = Modifier.fillMaxWidth(),
-//            horizontalArrangement = Arrangement.spacedBy(6.dp)
-//        )
-//        {
-//
-//            Button(
-//                onClick = onCreditClick,
-//                modifier = Modifier.weight(1f).height(38.dp),
-//                colors = ButtonDefaults.buttonColors(
-//                    containerColor = Color(0xFFFFC107),
-//                    contentColor = Color.Black
-//                )
-//            ) {
-//                Text("💳 Credit", fontSize = 13.sp)
-//            }
-//
-//            Button(
-//                onClick = onPayLaterClick,
-//                modifier = Modifier.weight(1f).height(38.dp),
-//                colors = ButtonDefaults.buttonColors(
-//                    containerColor = Color(0xFF9E9E9E),
-//                    contentColor = Color.White
-//                )
-//            ) {
-//                Text("🕒 Pay Later", fontSize = 13.sp)
-//            }
-//        }
 
         // ✅ CREDIT INPUT
         if (isCreditSelected) {
