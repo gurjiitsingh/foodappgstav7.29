@@ -1458,55 +1458,7 @@ fun BillDialog(
 
     }
 
-//    if (showComplimentaryReasons) {
-//        ComplimentaryReasonDialog(
-//            onDismiss = {
-//                showComplimentaryReasons = false
-//            },
-//            onDriverClick = {
-//                showComplimentaryReasons = false
-//
-//                billViewModel.complimentaryOrder(
-//                    payments = listOf(
-//                        PaymentInput(mode = "FREE", amount = 0)
-//                    ),
-//                    name = "Driver",
-//                    phone = uiState.value.customerPhone,
-//                    reason = "DRIVER"
-//                )
-//
-//                onDismiss()
-//            },
-//            onFamilyClick = {
-//                showComplimentaryReasons = false
-//
-//                billViewModel.complimentaryOrder(
-//                    payments = listOf(
-//                        PaymentInput(mode = "FREE", amount = 0)
-//                    ),
-//                    name = "Family",
-//                    phone = uiState.value.customerPhone,
-//                    reason = "FAMILY"
-//                )
-//
-//                onDismiss()
-//            },
-//            onFriendClick = {
-//                showComplimentaryReasons = false
-//
-//                billViewModel.complimentaryOrder(
-//                    payments = listOf(
-//                        PaymentInput(mode = "FREE", amount = 0)
-//                    ),
-//                    name = "Friend",
-//                    phone = uiState.value.customerPhone,
-//                    reason = "FRIEND"
-//                )
-//
-//                onDismiss()
-//            }
-//        )
-//    }
+
 
 
 
