@@ -1278,6 +1278,10 @@ class BillViewModel(
         name: String,
         phone: String
     ) {
+// UPDATE NEEDED ############################
+//        Move the customer credit update inside the database transaction
+//        Currently, you update currentDue and insert the customer ledger entry before db.withTransaction.
+//        If the bill save fails afterward, the customer could owe money even though no bill was saved.
 
         val creditPaiseInput = _creditPaise.value
         val paidModes = setOf("CASH", "CARD", "UPI", "WALLET")
@@ -1778,13 +1782,17 @@ class BillViewModel(
 
                         orderProductDao.insertAll(orderItems)
 
+
                         // ==========================================
-                        // 6. SAVE PAYMENTS
+                        // 6. SAVE ACTUAL PAYMENTS ONLY
                         // ==========================================
 
-                        if (payments.isNotEmpty() && totalPaidPaise > 0) {
+                        val actualPayments = payments.filter {
+                            it.mode in paidModes && it.amount > 0
+                        }
 
-                            val paymentEntities = payments.map {
+                        if (actualPayments.isNotEmpty()) {
+                            val paymentEntities = actualPayments.map {
                                 PosOrderPaymentEntity(
                                     id = UUID.randomUUID().toString(),
                                     orderId = orderId,
@@ -1802,10 +1810,37 @@ class BillViewModel(
                                 )
                             }
 
-                            paymentRepository.insertPayments(
-                                paymentEntities
-                            )
+                            paymentRepository.insertPayments(paymentEntities)
                         }
+
+                        // ==========================================
+                        // 6. SAVE PAYMENTS OLD NOT USED
+                        // ==========================================
+
+//                        if (payments.isNotEmpty() && totalPaidPaise > 0) {
+//
+//                            val paymentEntities = payments.map {
+//                                PosOrderPaymentEntity(
+//                                    id = UUID.randomUUID().toString(),
+//                                    orderId = orderId,
+//                                    ownerId = outlet.ownerId,
+//                                    outletId = outlet.outletId,
+//                                    amount = MoneyUtils.fromPaise(it.amount),
+//                                    mode = it.mode,
+//                                    provider = null,
+//                                    method = null,
+//                                    status = "SUCCESS",
+//                                    deviceId = "POS",
+//                                    createdAt = now,
+//                                    businessDate = businessDate,
+//                                    syncStatus = "PENDING"
+//                                )
+//                            }
+//
+//                            paymentRepository.insertPayments(
+//                                paymentEntities
+//                            )
+//                        }
 
                         // ==========================================
                         // 7. UPDATE KOT HISTORY

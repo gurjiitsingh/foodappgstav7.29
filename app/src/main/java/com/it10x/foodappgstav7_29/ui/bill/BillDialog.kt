@@ -1459,13 +1459,13 @@ fun BillDialog(
 
                 val phone = moreOptionsPhone.trim()
 
-                if (phone.length != 10 || !phone.all { it.isDigit() }) {
-                    Toast.makeText(
-                        context,
-                        "Enter valid 10 digit phone number",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                } else {
+//                if (phone.length != 10 || !phone.all { it.isDigit() }) {
+//                    Toast.makeText(
+//                        context,
+//                        "Enter valid 10 digit phone number",
+//                        Toast.LENGTH_SHORT
+//                    ).show()
+//                } else {
                     billViewModel.payBill(
                         payments = payments,
                         name = "Customer",
@@ -1474,7 +1474,7 @@ fun BillDialog(
 
                     showMoreOptions = false
                     showRemainingOptions = false
-                }
+              //  }
             }
         )
 

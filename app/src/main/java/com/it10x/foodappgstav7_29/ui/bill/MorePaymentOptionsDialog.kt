@@ -28,6 +28,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.it10x.foodappgstav7_29.ui.payment.PaymentInput
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 @Composable
 fun MorePaymentOptionsDialog(
     onDismiss: () -> Unit,
@@ -55,6 +58,13 @@ fun MorePaymentOptionsDialog(
     var selectedOption by remember {
         mutableStateOf("CREDIT")
     }
+
+    var splitAmount by remember {
+        mutableStateOf("")
+    }
+
+    val splitFocusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     val options = listOf(
         "COMPLIMENTARY" to "Complimentary",
@@ -134,15 +144,24 @@ fun MorePaymentOptionsDialog(
                             Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .padding(vertical = 4.dp) // ADD THIS
                                     .height(64.dp)
                                     .clickable {
                                         selectedOption = key
 
-                                        if (key == "CREDIT") {
-                                            activeKeypadInput = "CREDIT"
-                                            onCreditClick()
-                                        } else {
-                                            activeKeypadInput = "PHONE"
+                                        when (key) {
+                                            "CREDIT" -> {
+                                                activeKeypadInput = "CREDIT"
+                                                onCreditClick()
+                                            }
+
+                                            "SPLIT_PAYMENT" -> {
+                                                activeKeypadInput = "SPLIT_PAYMENT"
+                                            }
+
+                                            else -> {
+                                                activeKeypadInput = "PHONE"
+                                            }
                                         }
                                     },
                                 shape = RoundedCornerShape(10.dp),
@@ -189,12 +208,19 @@ fun MorePaymentOptionsDialog(
                     )
 
                     // RIGHT CONTENT
+                    // RIGHT CONTENT
                     Column(
                         modifier = Modifier
                             .fillMaxHeight()
                             .weight(0.70f)
-                            .padding(start = 4.dp)
-                        .verticalScroll(rememberScrollState())
+                            .padding(
+                                start = 4.dp,
+                                top = 4.dp,
+                                end = 4.dp,
+                                bottom = 4.dp
+                            )
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
 
                         when (selectedOption) {
@@ -296,13 +322,19 @@ fun MorePaymentOptionsDialog(
                                         }
 
                                     },
+                                    readOnly = true,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .onFocusChanged { focusState ->
                                             if (focusState.isFocused) {
                                                 activeKeypadInput = "CREDIT"
+                                                keyboardController?.hide()
                                             }
                                         },
+
+
+
+
                                     label = {
                                         Text("Credit Amount")
                                     },
@@ -505,6 +537,17 @@ fun MorePaymentOptionsDialog(
                                         singleLine = true,
                                         keyboardOptions = KeyboardOptions(
                                             keyboardType = KeyboardType.Decimal
+                                        ),
+                                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                            focusedTextColor = Color(0xFF212121),
+                                            unfocusedTextColor = Color(0xFF212121),
+                                            focusedContainerColor = Color.White,
+                                            unfocusedContainerColor = Color.White,
+                                            focusedLabelColor = Color(0xFF1976D2),
+                                            unfocusedLabelColor = Color(0xFF555555),
+                                            focusedBorderColor = Color(0xFF1976D2),
+                                            unfocusedBorderColor = Color(0xFF888888),
+                                            cursorColor = Color(0xFF1976D2)
                                         )
                                     )
 
@@ -640,7 +683,7 @@ fun MorePaymentOptionsDialog(
                             }
 
                             "SPLIT_PAYMENT" -> {
-                                var splitAmount by remember { mutableStateOf("") }
+
 
                                 val splitPayments = remember {
                                     mutableStateListOf<PaymentInput>()
@@ -694,13 +737,29 @@ fun MorePaymentOptionsDialog(
                                             splitAmount = value
                                         }
                                     },
-                                    modifier = Modifier.fillMaxWidth(),
+                                    readOnly = true,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .focusRequester(splitFocusRequester)
+                                        .onFocusChanged { focusState ->
+                                            if (focusState.isFocused) {
+                                                activeKeypadInput = "SPLIT_PAYMENT"
+                                                keyboardController?.hide()
+                                            }
+                                        },
+
+                                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color(0xFF212121),
+                                        unfocusedTextColor = Color(0xFF212121),
+                                        focusedLabelColor = Color(0xFF1976D2),
+                                        unfocusedLabelColor = Color(0xFF555555),
+                                        focusedBorderColor = Color(0xFF1976D2),
+                                        unfocusedBorderColor = Color(0xFF888888),
+                                        cursorColor = Color(0xFF1976D2)
+                                    ),
                                     label = { Text("Payment Amount") },
                                     placeholder = { Text("Enter amount") },
-                                    singleLine = true,
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Decimal
-                                    )
+                                    singleLine = true
                                 )
 
                                 Row(
@@ -795,8 +854,9 @@ fun MorePaymentOptionsDialog(
                                 Button(
                                     onClick = {
                                         if (
+
                                             splitRemainingPaise == 0L &&
-                                            splitPayments.size >= 2
+                                            splitPayments.size >= 1
                                         ) {
                                             onConfirmMixedPayments(splitPayments.toList())
                                         }
@@ -805,7 +865,7 @@ fun MorePaymentOptionsDialog(
                                         .fillMaxWidth()
                                         .height(48.dp),
                                     enabled = splitRemainingPaise == 0L &&
-                                            splitPayments.size >= 2
+                                            splitPayments.size >= 1
                                 ) {
                                     Text("Confirm Split Payment")
                                 }
@@ -848,13 +908,19 @@ fun MorePaymentOptionsDialog(
                                     onPhoneNumberChange(value)
                                 }
                             },
+                            readOnly = true,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .onFocusChanged { focusState ->
                                     if (focusState.isFocused) {
                                         activeKeypadInput = "PHONE"
+                                        keyboardController?.hide()
                                     }
                                 },
+
+
+
+
                             label = {
                                 Text("Customer Phone Number")
                             },
@@ -893,12 +959,14 @@ fun MorePaymentOptionsDialog(
                     Column(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
+                    )
+                    {
                         Text(
-                            text = if (activeKeypadInput == "PHONE") {
-                                "Phone Keypad"
-                            } else {
-                                "Credit Keypad"
+                            text = when (activeKeypadInput) {
+                                "PHONE" -> "Phone Keypad"
+                                "CREDIT" -> "Credit Keypad"
+                                "SPLIT_PAYMENT" -> "Split Payment Keypad"
+                                else -> "Phone Keypad"
                             },
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
@@ -968,6 +1036,32 @@ fun MorePaymentOptionsDialog(
                                                                 onCreditAmountChange(
                                                                     creditAmount + key
                                                                 )
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                "SPLIT_PAYMENT" -> {
+                                                    when (key) {
+                                                        "C" -> {
+                                                            splitAmount = ""
+                                                        }
+
+                                                        "⌫" -> {
+                                                            if (splitAmount.isNotEmpty()) {
+                                                                splitAmount = splitAmount.dropLast(1)
+                                                            }
+                                                        }
+
+                                                        else -> {
+                                                            if (
+                                                                key.all { it.isDigit() } ||
+                                                                (
+                                                                        key == "." &&
+                                                                                !splitAmount.contains(".")
+                                                                        )
+                                                            ) {
+                                                                splitAmount += key
                                                             }
                                                         }
                                                     }
