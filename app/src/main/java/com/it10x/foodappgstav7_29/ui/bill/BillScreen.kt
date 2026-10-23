@@ -261,17 +261,63 @@ fun BillScreen(
 
     // ---------- Quantity Edit Dialog ----------
     if (showQtyDialog && selectedItemId != null) {
+//        EditQuantityDialog(
+//            currentQty = selectedItemQty,
+//            onDismiss = { showQtyDialog = false },
+//            onConfirm = { newQty ->
+//                showQtyDialog = false
+//               // viewModel.updateItemQuantity(selectedItemId!!, newQty)
+//                selectedItemId?.let {
+//                    viewModel.updateItemQuantity(it, newQty)
+//                }
+//            }
+//        )
+
         EditQuantityDialog(
             currentQty = selectedItemQty,
-            onDismiss = { showQtyDialog = false },
-            onConfirm = { newQty ->
+            itemName = state.items
+                .find { it.id == selectedItemId }
+                ?.name ?: "Selected Item",
+            onDismiss = {
                 showQtyDialog = false
-               // viewModel.updateItemQuantity(selectedItemId!!, newQty)
-                selectedItemId?.let {
-                    viewModel.updateItemQuantity(it, newQty)
+            },
+            onConfirm = { newQty, reason ->
+                selectedItemId?.let { id ->
+
+                    val otherItems = state.items.filter {
+                        it.id != id
+                    }
+
+                    val hasOtherItems = otherItems.any {
+                        it.quantity > 0
+                    }
+
+                    if (newQty == 0 && !hasOtherItems) {
+
+                        // No other items remain: cancel the entire bill
+                        viewModel.cancelBill(
+                            payments = emptyList(),
+                            name = "customer", // use your actual state variable
+                            phone = "1234", // use your actual state variable
+                            cancellationReason = reason
+                        )
+
+                    } else {
+
+                        // Other items remain, or quantity is not zero
+                        viewModel.updateItemQuantity(
+                            itemId = id,
+                            newQty = newQty,
+                            reason = reason
+                        )
+                    }
                 }
+
+                showQtyDialog = false
             }
         )
+
+
     }
     // 🔐 Keep ViewModel updated
 
@@ -467,93 +513,429 @@ fun parseModifiers(json: String): List<String> {
     }
 }
 
+
 @Composable
 fun EditQuantityDialog(
     currentQty: Int,
     onDismiss: () -> Unit,
-    onConfirm: (Int) -> Unit
+    onConfirm: (Int, String) -> Unit,
+    itemName: String = "Selected Item"
 ) {
-    var qty by remember { mutableStateOf(currentQty.coerceAtLeast(1)) }
+    var qty by remember(currentQty) {
+        mutableStateOf(currentQty.coerceAtLeast(1))
+    }
 
-    Dialog(onDismissRequest = onDismiss) {
+    var cancellationReason by remember {
+        mutableStateOf("")
+    }
+    // Sample tables for UI design only.
+    // Replace with actual table data later.
+    val sampleTables = remember {
+        listOf(
+            "Table 01",
+            "Table 02",
+            "Table 03",
+            "Table 04",
+            "Table 05",
+            "Table 06"
+        )
+    }
+
+    var selectedTable by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    var expanded by remember {
+        mutableStateOf(false)
+    }
+
+    val context = LocalContext.current
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false
+        )
+    ) {
         Surface(
-            shape = MaterialTheme.shapes.medium,
-            tonalElevation = 8.dp,
             modifier = Modifier
-                .fillMaxWidth(0.8f)
-                .padding(16.dp)
+                .fillMaxWidth(0.92f)
+                .widthIn(max = 440.dp),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 8.dp
         ) {
             Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text(
-                    "Edit Quantity",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
 
-                // 🔹 Qty control with + and − buttons
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth()
+                // =========================================
+                // HEADER
+                // =========================================
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Button(
-                        onClick = { if (qty > 1) qty-- },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFD32F2F), // red
-                            contentColor = Color.White           // ✅ white symbol
-                        ),
-                        modifier = Modifier.size(50.dp)
-                    ) {
-                        Text(
-                            "−",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White                   // ✅ explicitly white
-                        )
-                    }
-
                     Text(
-                        text = qty.toString(),
-                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                        modifier = Modifier.padding(horizontal = 28.dp)
+                        text = "Edit Item",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
                     )
 
-                    Button(
-                        onClick = { qty++ },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF388E3C), // green
-                            contentColor = Color.White           // ✅ white symbol
-                        ),
-                        modifier = Modifier.size(50.dp)
+                    Text(
+                        text = itemName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                HorizontalDivider()
+
+                // =========================================
+                // SECTION 1: CHANGE QUANTITY
+                // =========================================
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(
+                        containerColor =
+                            MaterialTheme.colorScheme.surfaceContainerLow
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Text(
-                            "+",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White                   // ✅ explicitly white
-                        )
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(
+                                text = "1",
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .background(
+                                        MaterialTheme.colorScheme.primaryContainer,
+                                        MaterialTheme.shapes.small
+                                    )
+                                    .padding(
+                                        horizontal = 10.dp,
+                                        vertical = 6.dp
+                                    )
+                            )
+
+                            Column {
+                                Text(
+                                    text = "Change Quantity",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+
+                                Text(
+                                    text = "Adjust the number of portions",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+
+                            // DECREASE
+                            FilledIconButton(
+                                onClick = {
+                                    if (qty > 0) qty--
+                                },
+                                enabled = qty > 0,
+                                modifier = Modifier.size(52.dp),
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = Color(0xFFD32F2F),
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Text(
+                                    text = "−",
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            // CURRENT QUANTITY
+                            Column(
+                                modifier = Modifier
+                                    .width(100.dp)
+                                    .padding(horizontal = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = qty.toString(),
+                                    style = MaterialTheme.typography.headlineLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+
+                                Text(
+                                    text = if (qty == 1) "portion" else "portions",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            // INCREASE
+                            FilledIconButton(
+                                onClick = {
+                                    if (qty < 999) qty++
+                                },
+                                enabled = qty < 999,
+                                modifier = Modifier.size(52.dp),
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = Color(0xFF388E3C),
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Text(
+                                    text = "+",
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        if (qty < currentQty) {
+                            OutlinedTextField(
+                                value = cancellationReason,
+                                onValueChange = {
+                                    cancellationReason = it
+                                },
+                                label = {
+                                    Text("Cancellation reason")
+                                },
+                                placeholder = {
+                                    Text("Why is this quantity being reduced?")
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                minLines = 2,
+                                maxLines = 3,
+                                singleLine = false
+                            )
+                        }
+
+                        Button(
+                            onClick = {
+                                if (qty < currentQty && cancellationReason.isBlank()) {
+                                    Toast.makeText(
+                                        context,
+                                        "Please enter a cancellation reason",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                    return@Button
+                                }
+
+                                onConfirm(
+                                    qty,
+                                    if (qty < currentQty) cancellationReason.trim() else ""
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                        ) {
+                            Text(
+                                text = "Update Quantity",
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
                 }
 
-                // 🔹 Action buttons
+                // =========================================
+                // SECTION 2: MOVE ITEM TO ANOTHER TABLE
+                // =========================================
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(
+                        containerColor =
+                            MaterialTheme.colorScheme.surfaceContainerLow
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(
+                                text = "2",
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .background(
+                                        MaterialTheme.colorScheme.primaryContainer,
+                                        MaterialTheme.shapes.small
+                                    )
+                                    .padding(
+                                        horizontal = 10.dp,
+                                        vertical = 6.dp
+                                    )
+                            )
+
+                            Column {
+                                Text(
+                                    text = "Move Item",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+
+                                Text(
+                                    text = "Transfer this item to another table",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = "Destination Table",
+                            style = MaterialTheme.typography.labelLarge
+                        )
+
+                        // DESTINATION TABLE SELECTOR
+                        Box(
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    expanded = true
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp),
+                                shape = MaterialTheme.shapes.medium
+                            ) {
+                                Text(
+                                    text = selectedTable
+                                        ?: "Select destination table",
+                                    modifier = Modifier.weight(1f),
+                                    textAlign = TextAlign.Start
+                                )
+
+                                Text(
+                                    text = if (expanded) "▲" else "▼",
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = {
+                                    expanded = false
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth(0.78f)
+                            ) {
+                                sampleTables.forEach { table ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(table)
+                                        },
+                                        onClick = {
+                                            selectedTable = table
+                                            expanded = false
+                                        },
+                                        trailingIcon = {
+                                            if (selectedTable == table) {
+                                                Text(
+                                                    text = "✓",
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        Text(
+                            text = "Only the selected item will be moved. " +
+                                    "Other items in the current order will remain unchanged.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        OutlinedButton(
+                            onClick = {
+                                val destination = selectedTable
+
+                                if (destination == null) {
+                                    Toast.makeText(
+                                        context,
+                                        "Please select a destination table",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                } else {
+                                    // UI PREVIEW ONLY.
+                                    // Database migration will be implemented later.
+                                    Toast.makeText(
+                                        context,
+                                        "Table transfer will be connected later: $destination",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
+                            enabled = true,
+                            shape = MaterialTheme.shapes.medium
+                        ) {
+                            Text(
+                                text = "Move Item",
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+
+                // =========================================
+                // FOOTER
+                // =========================================
+
+                HorizontalDivider()
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    TextButton(onClick = onDismiss) { Text("Cancel") }
-                    Spacer(Modifier.width(8.dp))
-                    Button(onClick = { onConfirm(qty) }) {
-                        Text("Update")
+                    TextButton(
+                        onClick = onDismiss
+                    ) {
+                        Text("Close")
                     }
                 }
             }
         }
     }
 }
+
 
 
 

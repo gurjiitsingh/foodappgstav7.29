@@ -162,13 +162,25 @@ AND status = 'PENDING'
     SET status = 'DELETED',
         note = :reason,
         finalPrice = 0.0,
-        basePrice = 0.0
+        basePrice = 0.0,
+        syncedToCloud = 0
     WHERE id = :itemId
 """)
     suspend fun markItemDeleted(
         itemId: String,
         reason: String
     )
+
+
+//    @Query("""
+//    UPDATE pos_kot_items
+//    SET status = 'DELETED',
+//        note = :reason,
+//        finalPrice = 0.0,
+//        basePrice = 0.0
+//    WHERE id = :itemId
+//""")
+//    suspend fun markItemDeleted(itemId: String, reason: String)
 
     @Query("""
     SELECT * FROM pos_kot_items

@@ -2016,7 +2016,8 @@ class BillViewModel(
                 val inputPhone = phone.trim()
                 val inputName = name.trim().ifBlank { "Customer" }
                 val kotItems = kotItemDao.getDoneItemsForTableOnce(tableId)
-                if (kotItems.isEmpty()) {
+                val orderDetailItems =  kotItemDao.getDoneAndDeletedItemsForOrderDetail(tableId)
+                if (orderDetailItems.isEmpty()) {
                     sendEvent("No items to cancel")
                     return@launch
                 }
@@ -2219,7 +2220,9 @@ class BillViewModel(
                     reason = cancellationReason,
                     notes = "Bill Cancelled by $stewardName"
                 )
-                val orderItems = kotItems
+
+
+                val orderItems = orderDetailItems
                     .groupBy {
                         listOf(
                             it.productId,
@@ -2276,7 +2279,7 @@ class BillViewModel(
                             basePrice = first.basePrice,
                             modifierPrice = modifierTotal,
                             quantity = quantity,
-                            itemSubtotal = itemGrossAmount ,
+                            itemSubtotal = 0.0,//itemGrossAmount ,
                             // 🔹 Currency snapshot (important for audit)
                             currency = _currencySymbol.value,
                             // 🔹 Payment snapshot (do NOT rely on join later)
@@ -2330,31 +2333,31 @@ class BillViewModel(
                         // 2. VALIDATE CURRENT KOT DATA
                         // ==========================================
 
-                        val currentItemSubtotalPaise =
-                            currentKotItems.sumOf { item ->
-
-                                val modifierPrice =
-                                    ModifierJsonHelper.fromJson(item.modifiersJson)
-                                        .flatMap { group -> group.items }
-                                        .sumOf { modifier -> modifier.price }
-
-                                val basePlusModifier =
-                                    item.basePrice + modifierPrice
-
-                                MoneyUtils.toPaise(basePlusModifier) * item.quantity
-                            }
+                        val currentItemSubtotalPaise = 0.0;
+//                            currentKotItems.sumOf { item ->
+//
+//                                val modifierPrice =
+//                                    ModifierJsonHelper.fromJson(item.modifiersJson)
+//                                        .flatMap { group -> group.items }
+//                                        .sumOf { modifier -> modifier.price }
+//
+//                                val basePlusModifier =
+//                                    item.basePrice + modifierPrice
+//
+//                                MoneyUtils.toPaise(basePlusModifier) * item.quantity
+//                            }
 
                         val currentTotalQuantity =
                             currentKotItems.sumOf {
                                 it.quantity
                             }
 
-                        if (
-                            currentItemSubtotalPaise != itemSubtotalPaise ||
-                            currentTotalQuantity != firstTotalQuantity
-                        ) {
-                            throw IllegalStateException("Bill data changed")
-                        }
+//                        if (
+//                            currentItemSubtotalPaise != itemSubtotalPaise ||
+//                            currentTotalQuantity != firstTotalQuantity
+//                        ) {
+//                            throw IllegalStateException("Bill data changed")
+//                        }
 
                         // ==========================================
                         // 3. SAVE ORDER MASTER
@@ -2666,24 +2669,19 @@ class BillViewModel(
 
 
     // file: BillViewModel.kt (inside the class)
-    fun updateItemQuantity(itemId: String, newQty: Int) {
-
+    fun updateItemQuantity(
+        itemId: String,
+        newQty: Int,
+        reason: String = ""
+    ) {
         viewModelScope.launch {
-
             val qty = newQty.coerceAtLeast(0)
 
             val targetUi = _uiState.value.items
                 .find { it.id == itemId }
-
-            if (targetUi == null) {
-                Log.d("EDIT_DEBUG", "❌ targetUi NOT FOUND")
-                return@launch
-            }
+                ?: return@launch
 
             val allItems = kotItemDao.getDoneItemsForTableOnce(tableId)
-
-
-
 
             val groupedItems = allItems.filter {
                 it.productId == targetUi.productId &&
@@ -2694,44 +2692,90 @@ class BillViewModel(
                         it.status == "DONE"
             }
 
+            if (groupedItems.isEmpty()) return@launch
 
-            // Delete
-            groupedItems.forEach {
-                kotItemDao.deleteItemById(it.id)
-            }
+            val currentQty = groupedItems.sumOf { it.quantity }
 
+            if (qty == currentQty) return@launch
 
-
-            if (qty > 0 && groupedItems.isNotEmpty()) {
-
+            // Increasing quantity: keep existing rows and add only the difference.
+            if (qty > currentQty) {
                 val template = groupedItems.first()
 
                 kotItemDao.insert(
                     template.copy(
                         id = UUID.randomUUID().toString(),
-                        quantity = qty
+                        quantity = qty - currentQty
                     )
                 )
+            } else {
+                // Decreasing quantity: a reason is required.
+                if (reason.isBlank()) {
+                    Log.d("EDIT_DEBUG", "Cancellation reason required")
+                    return@launch
+                }
 
-                Log.d("EDIT_DEBUG", "Inserted new row qty=$qty")
+                var remainingToCancel = currentQty - qty
+
+                // Cancel portions from the newest KOT rows first.
+                for (item in groupedItems.sortedByDescending { it.createdAt }) {
+                    if (remainingToCancel <= 0) break
+
+                    if (item.quantity <= remainingToCancel) {
+                        // Entire row cancelled: preserve it as DELETED.
+                        kotItemDao.markItemDeleted(
+                            itemId = item.id,
+                            reason = reason.trim()
+                        )
+
+                        remainingToCancel -= item.quantity
+                    } else {
+                        // Partial row cancellation:
+                        // reduce original row and create a DELETED record
+                        // for the cancelled portion.
+                        val cancelledQty = remainingToCancel
+
+                        kotItemDao.updateQuantity(
+                            id = item.id,
+                            qty = item.quantity - cancelledQty
+                        )
+
+                        kotItemDao.insert(
+                            item.copy(
+                                id = UUID.randomUUID().toString(),
+                                quantity = cancelledQty,
+                                status = "DELETED",
+                                note = reason.trim(),
+                                finalPrice = 0.0,
+                                basePrice = 0.0,
+                                syncedToCloud = false
+                            )
+                        )
+
+                        remainingToCancel = 0
+                    }
+                }
+
+                if (remainingToCancel > 0) {
+                    Log.e(
+                        "EDIT_DEBUG",
+                        "Could not cancel requested quantity: $remainingToCancel"
+                    )
+                    return@launch
+                }
             }
 
-
-
-            //  NEW: FIRESTORE TABLE SNAPSHOT SYNC (IMPORTANT)
+            // Firestore table snapshot sync
             try {
                 tableKotSyncService.syncTableSnapshot(
                     tableId = tableId,
                     source = "POS"
                 )
-
             } catch (e: Exception) {
                 Log.e("TABLE_SYNC", "Failed to trigger snapshot sync", e)
             }
-
         }
     }
-
 
     private var searchJob: Job? = null
 
