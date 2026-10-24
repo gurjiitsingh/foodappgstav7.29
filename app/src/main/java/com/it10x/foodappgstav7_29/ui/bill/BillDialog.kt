@@ -33,6 +33,7 @@ import com.it10x.foodappgstav7_29.utils.formatter.MoneyFormatter
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.input.KeyboardType
+import com.it10x.foodappgstav7_29.viewmodel.PosTableViewModel
 
 @Composable
 fun BillDialog(
@@ -47,8 +48,14 @@ fun BillDialog(
     posSessionViewModel: PosSessionViewModel,
 ) {
     if (!showBill || sessionId == null) return
-
     val context = LocalContext.current
+
+    val posTableViewModel: PosTableViewModel = viewModel()
+    val tables by posTableViewModel.tables.collectAsState()
+
+    LaunchedEffect(Unit) {
+        posTableViewModel.loadTables()
+    }
 
     //--------------- PHONE ---------------if (isProcessing) return@Buttonif (isProcessing) return@Buttonif (isProcessing) return@Button
 
@@ -392,7 +399,10 @@ fun BillDialog(
                                 pendingDeleteItemId = itemId
                                 itemDeleteReason = ""
                                 showItemDeleteReasonDialog = true
-                            }
+                            },
+                            tables = tables,
+                            tableId = tableId,
+                            selectedTableName = selectedTableName,
                         )
                     //}
                 }
@@ -908,7 +918,7 @@ fun BillDialog(
                                 CancelButton(
                                     modifier = Modifier.weight(1f),
                                     text = "Cancel Bill",
-                                    color = Color(0xFF2E7D32),
+                                   // color = Color(0xFF2E7D32),
                                     onClick = {
                                         cancellationReason = ""
                                         showCancelReasonDialog = true

@@ -172,6 +172,20 @@ AND status = 'PENDING'
     )
 
 
+
+    @Query("""
+    UPDATE pos_kot_items
+    SET tableNo = :newTableId,
+        tableName = :newTableName,
+        syncedToCloud = 0,
+        syncedFromCloud = 0
+    WHERE id = :itemId
+""")
+    suspend fun moveItemToTable(
+        itemId: String,
+        newTableId: String,
+        newTableName: String
+    )
 //    @Query("""
 //    UPDATE pos_kot_items
 //    SET status = 'DELETED',

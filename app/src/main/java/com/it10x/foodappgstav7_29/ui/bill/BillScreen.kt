@@ -24,9 +24,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.it10x.foodappgstav7_29.data.pos.entities.TableEntity
 import com.it10x.foodappgstav7_29.ui.theme.PosTheme
 import com.it10x.foodappgstav7_29.utils.formatter.MoneyFormatter
+import com.it10x.foodappgstav7_29.viewmodel.PosTableViewModel
 
 // =====================================================
 // DELIVERY ADDRESS UI STATE (UI ONLY)
@@ -53,7 +57,10 @@ fun BillScreen(
     localeTag: String,
     onPayClick: (PaymentType) -> Unit,
     onLastItemDelete: () -> Unit,
-    onItemDelete: (String) -> Unit
+    onItemDelete: (String) -> Unit,
+    tables: List<PosTableViewModel.TableUiState>,
+    tableId: String?,
+    selectedTableName: String,
 
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -261,26 +268,18 @@ fun BillScreen(
 
     // ---------- Quantity Edit Dialog ----------
     if (showQtyDialog && selectedItemId != null) {
-//        EditQuantityDialog(
-//            currentQty = selectedItemQty,
-//            onDismiss = { showQtyDialog = false },
-//            onConfirm = { newQty ->
-//                showQtyDialog = false
-//               // viewModel.updateItemQuantity(selectedItemId!!, newQty)
-//                selectedItemId?.let {
-//                    viewModel.updateItemQuantity(it, newQty)
-//                }
-//            }
-//        )
+
 
         EditQuantityDialog(
             currentQty = selectedItemQty,
             itemName = state.items
                 .find { it.id == selectedItemId }
                 ?.name ?: "Selected Item",
+
             onDismiss = {
                 showQtyDialog = false
             },
+
             onConfirm = { newQty, reason ->
                 selectedItemId?.let { id ->
 
@@ -297,8 +296,8 @@ fun BillScreen(
                         // No other items remain: cancel the entire bill
                         viewModel.cancelBill(
                             payments = emptyList(),
-                            name = "customer", // use your actual state variable
-                            phone = "1234", // use your actual state variable
+                            name = "customer", // Replace with your actual state variable
+                            phone = "1234", // Replace with your actual state variable
                             cancellationReason = reason
                         )
 
@@ -314,9 +313,29 @@ fun BillScreen(
                 }
 
                 showQtyDialog = false
+            },
+
+            // Actual table data for the Move Item dropdown
+            tables = tables,
+
+            // ID of the table currently being viewed
+            currentTableId = tableId.orEmpty(),
+
+            // Handle moving the selected item to another table
+            onMoveItem = { qty, destinationId, destinationName ->
+
+                val itemId = selectedItemId
+
+                if (itemId != null) {
+                    viewModel.moveItemQuantity(
+                        itemId = itemId,
+                        moveQty = qty,
+                        destinationTableId = destinationId,
+                        destinationTableName = destinationName
+                    )
+                }
             }
         )
-
 
     }
     // 🔐 Keep ViewModel updated
@@ -516,10 +535,13 @@ fun parseModifiers(json: String): List<String> {
 
 @Composable
 fun EditQuantityDialog(
-    currentQty: Int,
+     currentQty: Int,
     onDismiss: () -> Unit,
     onConfirm: (Int, String) -> Unit,
-    itemName: String = "Selected Item"
+    itemName: String = "Selected Item",
+    tables:  List<PosTableViewModel.TableUiState>,
+    currentTableId: String,
+     onMoveItem: (Int, String, String) -> Unit
 ) {
     var qty by remember(currentQty) {
         mutableStateOf(currentQty.coerceAtLeast(1))
@@ -528,28 +550,34 @@ fun EditQuantityDialog(
     var cancellationReason by remember {
         mutableStateOf("")
     }
+
+    var moveQty by remember(currentQty) {
+        mutableIntStateOf(1)
+    }
     // Sample tables for UI design only.
     // Replace with actual table data later.
-    val sampleTables = remember {
-        listOf(
-            "Table 01",
-            "Table 02",
-            "Table 03",
-            "Table 04",
-            "Table 05",
-            "Table 06"
-        )
+    val context = LocalContext.current
+
+    val posTableViewModel: PosTableViewModel = viewModel()
+
+    val tables by posTableViewModel.tables.collectAsState()
+
+    LaunchedEffect(Unit) {
+        posTableViewModel.loadTables()
     }
 
     var selectedTable by remember {
         mutableStateOf<String?>(null)
     }
 
+    var selectedTableId by remember {
+        mutableStateOf<String?>(null)
+    }
     var expanded by remember {
         mutableStateOf(false)
     }
 
-    val context = LocalContext.current
+
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -576,21 +604,41 @@ fun EditQuantityDialog(
                 // HEADER
                 // =========================================
 
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Edit Item",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
+                    // LEFT: HEADER
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "Edit Item",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
 
-                    Text(
-                        text = itemName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                        Text(
+                            text = itemName,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    // RIGHT: CLOSE ICON
+                    IconButton(
+                        onClick = onDismiss
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close dialog"
+                        )
+                    }
                 }
+
+
 
                 HorizontalDivider()
 
@@ -649,17 +697,16 @@ fun EditQuantityDialog(
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-
                             // DECREASE
                             FilledIconButton(
                                 onClick = {
                                     if (qty > 0) qty--
                                 },
                                 enabled = qty > 0,
-                                modifier = Modifier.size(52.dp),
+                                modifier = Modifier.size(44.dp),
                                 colors = IconButtonDefaults.filledIconButtonColors(
                                     containerColor = Color(0xFFD32F2F),
                                     contentColor = Color.White
@@ -667,7 +714,7 @@ fun EditQuantityDialog(
                             ) {
                                 Text(
                                     text = "−",
-                                    fontSize = 28.sp,
+                                    fontSize = 26.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -675,8 +722,8 @@ fun EditQuantityDialog(
                             // CURRENT QUANTITY
                             Column(
                                 modifier = Modifier
-                                    .width(100.dp)
-                                    .padding(horizontal = 8.dp),
+                                    .width(72.dp)
+                                    .padding(horizontal = 2.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
@@ -698,7 +745,7 @@ fun EditQuantityDialog(
                                     if (qty < 999) qty++
                                 },
                                 enabled = qty < 999,
-                                modifier = Modifier.size(52.dp),
+                                modifier = Modifier.size(44.dp),
                                 colors = IconButtonDefaults.filledIconButtonColors(
                                     containerColor = Color(0xFF388E3C),
                                     contentColor = Color.White
@@ -706,8 +753,41 @@ fun EditQuantityDialog(
                             ) {
                                 Text(
                                     text = "+",
-                                    fontSize = 28.sp,
+                                    fontSize = 26.sp,
                                     fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            // UPDATE BUTTON
+                            Button(
+                                onClick = {
+                                    if (qty < currentQty && cancellationReason.isBlank()) {
+                                        Toast.makeText(
+                                            context,
+                                            "Please enter a cancellation reason",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                        return@Button
+                                    }
+
+                                    onConfirm(
+                                        qty,
+                                        if (qty < currentQty) cancellationReason.trim() else ""
+                                    )
+                                },
+                                modifier = Modifier
+                                    .width(90.dp)
+                                    .height(44.dp),
+                                contentPadding = PaddingValues(
+                                    horizontal = 8.dp,
+                                    vertical = 4.dp
+                                )
+                            ) {
+                                Text(
+                                    text = "Update",
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 13.sp,
+                                    maxLines = 1
                                 )
                             }
                         }
@@ -731,31 +811,7 @@ fun EditQuantityDialog(
                             )
                         }
 
-                        Button(
-                            onClick = {
-                                if (qty < currentQty && cancellationReason.isBlank()) {
-                                    Toast.makeText(
-                                        context,
-                                        "Please enter a cancellation reason",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                    return@Button
-                                }
 
-                                onConfirm(
-                                    qty,
-                                    if (qty < currentQty) cancellationReason.trim() else ""
-                                )
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp)
-                        ) {
-                            Text(
-                                text = "Update Quantity",
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
                     }
                 }
 
@@ -810,6 +866,40 @@ fun EditQuantityDialog(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+
+                            Text(
+                                text = "Quantity to Move",
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                OutlinedButton(
+                                    enabled = moveQty > 1,
+                                    onClick = {
+                                        moveQty = (moveQty - 1).coerceAtLeast(1)
+                                    }
+                                ) {
+                                    Text("−")
+                                }
+
+                                Text(
+                                    text = "$moveQty / $currentQty",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+
+                                OutlinedButton(
+                                    enabled = moveQty < currentQty,
+                                    onClick = {
+                                        moveQty = (moveQty + 1).coerceAtMost(currentQty)
+                                    }
+                                ) {
+                                    Text("+")
+                                }
+                            }
                         }
 
                         Text(
@@ -849,27 +939,44 @@ fun EditQuantityDialog(
                                     expanded = false
                                 },
                                 modifier = Modifier
-                                    .fillMaxWidth(0.78f)
+                                    .fillMaxWidth(0.9f)
+                                    .heightIn(max = 300.dp)
                             ) {
-                                sampleTables.forEach { table ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(table)
-                                        },
-                                        onClick = {
-                                            selectedTable = table
-                                            expanded = false
-                                        },
-                                        trailingIcon = {
-                                            if (selectedTable == table) {
-                                                Text(
-                                                    text = "✓",
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                    fontWeight = FontWeight.Bold
-                                                )
-                                            }
+                                val availableTables = tables.filter {
+                                    it.table.id != currentTableId
+                                }
+
+                                availableTables.chunked(3).forEach { rowTables ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        rowTables.forEach { tableItem ->
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Text(
+                                                        text = tableItem.table.tableName,
+                                                        textAlign = TextAlign.Center,
+                                                        maxLines = 1,
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    )
+                                                },
+                                                onClick = {
+                                                    selectedTable = tableItem.table.tableName
+                                                    // Keep the destination ID separately for transfer logic.
+                                                    selectedTableId = tableItem.table.id
+                                                    expanded = false
+                                                },
+                                                modifier = Modifier.weight(1f)
+                                            )
                                         }
-                                    )
+
+                                        repeat(3 - rowTables.size) {
+                                            Spacer(modifier = Modifier.weight(1f))
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -885,20 +992,25 @@ fun EditQuantityDialog(
                             onClick = {
                                 val destination = selectedTable
 
-                                if (destination == null) {
+                                val destinationId = selectedTableId
+                                val destinationName = selectedTable
+
+                                if (
+                                    destinationId == null ||
+                                    destinationName == null ||
+                                    currentQty <= 0
+                                ) {
                                     Toast.makeText(
                                         context,
-                                        "Please select a destination table",
+                                        "Select a destination table",
                                         Toast.LENGTH_SHORT
                                     ).show()
                                 } else {
-                                    // UI PREVIEW ONLY.
-                                    // Database migration will be implemented later.
-                                    Toast.makeText(
-                                        context,
-                                        "Table transfer will be connected later: $destination",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    onMoveItem(
+                                        moveQty,
+                                        destinationId,
+                                        destinationName
+                                    )
                                 }
                             },
                             modifier = Modifier
@@ -921,16 +1033,7 @@ fun EditQuantityDialog(
 
                 HorizontalDivider()
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(
-                        onClick = onDismiss
-                    ) {
-                        Text("Close")
-                    }
-                }
+
             }
         }
     }

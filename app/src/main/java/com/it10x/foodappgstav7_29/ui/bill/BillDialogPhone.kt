@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import com.it10x.foodappgstav7_29.ui.components.NumPad
 
 import com.it10x.foodappgstav7_29.ui.theme.PosTheme
+import com.it10x.foodappgstav7_29.viewmodel.PosTableViewModel
 
 @Composable
 fun BillDialogPhone(
@@ -47,6 +48,8 @@ fun BillDialogPhone(
     if (!showBill || sessionId == null) return
 
     val context = LocalContext.current
+    val posTableViewModel: PosTableViewModel = viewModel()
+    val tables by posTableViewModel.tables.collectAsState()
 
     // =========================================================
     // STATE
@@ -410,7 +413,10 @@ fun BillDialogPhone(
                                 pendingDeleteItemId = itemId
                                 itemDeleteReason = ""
                                 showItemDeleteReasonDialog = true
-                            }
+                            },
+                            tables = tables,
+                            tableId = tableId,
+                            selectedTableName = selectedTableName,
                         )
                     }
                 }
@@ -963,7 +969,7 @@ fun BillDialogPhone(
                             CancelButton(
                                 modifier = Modifier.weight(1f),
                                 text = "Cancel Bill",
-                                color = Color(0xFF2E7D32),
+                                //color = Color(0xFF2E7D32),
                                 onClick = {
                                     cancellationReason = ""
                                     showCancelReasonDialog = true

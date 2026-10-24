@@ -3,15 +3,12 @@ package com.it10x.foodappgstav7_29.ui.bill
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.it10x.foodappgstav7_29.ui.bill.PaymentButton
+
+
 import com.it10x.foodappgstav7_29.utils.MoneyUtils
 import com.it10x.foodappgstav7_29.utils.formatter.MoneyFormatter
 
@@ -91,18 +88,5 @@ fun PaymentButtonsSection(
             ) { onMoreClick() }
         }
 
-        // 📱 UPI + MORE
-//        Row(
-//            modifier = Modifier.fillMaxWidth(),
-//            horizontalArrangement = Arrangement.spacedBy(6.dp)
-//        ) {
-//
-//
-//            PaymentButton(
-//                modifier = Modifier.weight(1f),
-//                text = "More",
-//                color = Color(0xFF9C27B0)
-//            ) { onMoreClick() }
-//        }
     }
 }

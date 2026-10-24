@@ -1987,7 +1987,8 @@ class BillViewModel(
         name: String,
         phone: String,
         cancellationReason: String,
-    ) {
+    )
+    {
 
 
 
@@ -2288,7 +2289,7 @@ class BillViewModel(
                             taxType = first.taxType,
                             taxAmountPerItem = taxPerItemPlusModifier,
                             taxTotal = taxTotalItemPlusModifier,
-                            note = first.note,
+                            note = "invoice canceled",//first.note,
                             modifiersJson = first.modifiersJson,
                             finalPricePerItem = finalPricePerItemPlusModifier,
                             finalTotal = finalPriceTotalItemPlusModifier,
@@ -2771,8 +2772,131 @@ class BillViewModel(
                     tableId = tableId,
                     source = "POS"
                 )
+
+                // 2️⃣ Update real table bill counters
+                kotRepository.syncBillCount(tableId)
+                // 3️⃣ Sync to correct table (DINE_IN / TAKEAWAY / DELIVERY)
+                tableSyncManager.syncBill(tableId, orderType)
+
+
             } catch (e: Exception) {
                 Log.e("TABLE_SYNC", "Failed to trigger snapshot sync", e)
+            }
+        }
+    }
+
+
+    fun moveItemQuantity(
+        itemId: String,
+        moveQty: Int,
+        destinationTableId: String,
+        destinationTableName: String
+    ) {
+        viewModelScope.launch {
+            val qtyToMove = moveQty.coerceAtLeast(0)
+
+            if (qtyToMove == 0) return@launch
+
+            if (destinationTableId == tableId) {
+                Log.w("MOVE_ITEM", "Source and destination are the same")
+                return@launch
+            }
+
+            val targetUi = _uiState.value.items
+                .find { it.id == itemId }
+                ?: return@launch
+
+            val allItems = kotItemDao.getDoneItemsForTableOnce(tableId)
+
+            // Find the database rows represented by this bill item.
+            val groupedItems = allItems.filter {
+                it.productId == targetUi.productId &&
+                        it.basePrice == targetUi.basePrice &&
+                        it.taxRate == targetUi.taxRate &&
+                        it.note == targetUi.note &&
+                        it.modifiersJson == targetUi.modifiersJson &&
+                        it.status == "DONE"
+            }
+
+            if (groupedItems.isEmpty()) return@launch
+
+            val currentQty = groupedItems.sumOf { it.quantity }
+
+            if (qtyToMove > currentQty) {
+                Log.w(
+                    "MOVE_ITEM",
+                    "Cannot move $qtyToMove units; only $currentQty available"
+                )
+                return@launch
+            }
+
+            var remainingToMove = qtyToMove
+
+            // Move from the newest matching rows first.
+            for (item in groupedItems.sortedByDescending { it.createdAt }) {
+                if (remainingToMove <= 0) break
+
+                if (item.quantity <= remainingToMove) {
+                    // The complete row moves to the destination.
+                    kotItemDao.moveItemToTable(
+                        itemId = item.id,
+                        newTableId = destinationTableId,
+                        newTableName = destinationTableName
+                    )
+
+                    remainingToMove -= item.quantity
+                } else {
+                    // Split the row: leave the remainder on the source.
+                    val movedItem = item.copy(
+                        id = UUID.randomUUID().toString(),
+                        tableNo = destinationTableId,
+                        tableName = destinationTableName,
+                        quantity = remainingToMove,
+                        syncedToCloud = false,
+                        syncedFromCloud = false
+                    )
+
+                    kotItemDao.insert(movedItem)
+
+                    kotItemDao.updateQuantity(
+                        id = item.id,
+                        qty = item.quantity - remainingToMove
+                    )
+
+                    remainingToMove = 0
+                }
+            }
+
+            if (remainingToMove > 0) {
+                Log.e(
+                    "MOVE_ITEM",
+                    "Could not move requested quantity: $remainingToMove"
+                )
+                return@launch
+            }
+
+            // Refresh both tables in Firestore.
+            try {
+                tableKotSyncService.syncTableSnapshot(
+                    tableId = tableId,
+                    source = "POS"
+                )
+
+                tableKotSyncService.syncTableSnapshot(
+                    tableId = destinationTableId,
+                    source = "POS"
+                )
+
+                // 2️⃣ Update real table bill counters
+                kotRepository.syncBillCount(tableId)
+                kotRepository.syncBillCount(destinationTableId)
+                // 3️⃣ Sync to correct table (DINE_IN / TAKEAWAY / DELIVERY)
+                tableSyncManager.syncBill(tableId, orderType)
+                tableSyncManager.syncBill(destinationTableId, orderType)
+
+
+            } catch (e: Exception) {
+                Log.e("MOVE_ITEM", "Table snapshot sync failed", e)
             }
         }
     }
